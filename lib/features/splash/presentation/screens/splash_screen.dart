@@ -12,7 +12,7 @@ class SplashScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(splashGateProvider, (previous, next) {
       if (next.hasValue && context.mounted) {
-        context.go(RoutePaths.login);
+        context.go(RoutePaths.welcome);
       }
     });
 
