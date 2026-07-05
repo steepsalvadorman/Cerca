@@ -18,6 +18,23 @@ class CercaController extends _$CercaController {
   @override
   CercaState build() => const CercaState();
 
+  void setLoginName(String name) => state = state.copyWith(loginName: name);
+
+  void startLoginAnimation() => state = state.copyWith(loginAnimating: true);
+
+  void finishLoginAnimation() => state = state.copyWith(loginAnimating: false);
+
+  void toggleWhatsapp() =>
+      state = state.copyWith(whatsappOpen: !state.whatsappOpen);
+
+  void setWhatsappPhone(String phone) =>
+      state = state.copyWith(whatsappPhone: phone);
+
+  void startSocial(String provider) =>
+      state = state.copyWith(socialAnimating: true, socialProvider: provider);
+
+  void finishSocial() => state = state.copyWith(socialAnimating: false);
+
   void selectTech(int id) =>
       state = state.copyWith(selectedTechId: id, viewingTeam: false);
 
@@ -129,4 +146,18 @@ class CercaController extends _$CercaController {
     if (provider is! TechTeam) return 0;
     return provider.laborCost + provider.materialsCost + projectMobilityCost;
   }
+
+  String get loginInitial =>
+      state.loginName.trim().isEmpty ? '?' : state.loginName.trim()[0].toUpperCase();
+
+  String get loginButtonLabel {
+    if (state.loginAnimating) return '';
+    if (state.loginRemembered) {
+      final firstName = state.loginName.trim().split(' ').first;
+      return 'Continuar como $firstName';
+    }
+    return 'Ingresar';
+  }
+
+  String get socialProviderLabel => 'Conectando con ${state.socialProvider}…';
 }

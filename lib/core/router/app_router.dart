@@ -1,22 +1,23 @@
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/cerca/presentation/screens/app_fee_screen.dart';
-import '../../features/cerca/presentation/screens/bidding_screen.dart';
-import '../../features/cerca/presentation/screens/chat_screen.dart';
-import '../../features/cerca/presentation/screens/client_account_screen.dart';
-import '../../features/cerca/presentation/screens/direct_quote_screen.dart';
-import '../../features/cerca/presentation/screens/home_screen.dart';
-import '../../features/cerca/presentation/screens/job_rating_screen.dart';
-import '../../features/cerca/presentation/screens/mode_chooser_screen.dart';
-import '../../features/cerca/presentation/screens/project_quote_screen.dart';
-import '../../features/cerca/presentation/screens/tech_docs_screen.dart';
-import '../../features/cerca/presentation/screens/tech_profile_screen.dart';
-import '../../features/cerca/presentation/screens/technician_profile_screen.dart';
-import '../../features/cerca/presentation/screens/tracking_screen.dart';
-import '../../features/cerca/presentation/screens/welcome_screen.dart';
+import '../../features/chat/presentation/screens/chat_screen.dart';
+import '../../features/client_account/presentation/screens/client_account_screen.dart';
+import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/job_request/presentation/screens/bidding_screen.dart';
+import '../../features/job_request/presentation/screens/direct_quote_screen.dart';
+import '../../features/job_request/presentation/screens/mode_chooser_screen.dart';
+import '../../features/job_request/presentation/screens/project_quote_screen.dart';
+import '../../features/onboarding/presentation/screens/login_screen.dart';
+import '../../features/onboarding/presentation/screens/register_screen.dart';
+import '../../features/payment/presentation/screens/app_fee_screen.dart';
+import '../../features/payment/presentation/screens/job_rating_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
+import '../../features/technician/presentation/screens/tech_docs_screen.dart';
+import '../../features/technician/presentation/screens/tech_profile_screen.dart';
+import '../../features/technician/presentation/screens/technician_profile_screen.dart';
+import '../../features/tracking/presentation/screens/tracking_screen.dart';
+import '../../features/welcome/presentation/screens/welcome_screen.dart';
 import 'route_paths.dart';
 
 part 'app_router.g.dart';
@@ -33,6 +34,10 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: RoutePaths.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.register,
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: RoutePaths.welcome,

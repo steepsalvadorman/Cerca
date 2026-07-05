@@ -5,6 +5,7 @@ class RoutePaths {
 
   static const String splash = '/';
   static const String login = '/login';
+  static const String register = '/register';
 
   // Cerca flow.
   static const String welcome = '/welcome';
