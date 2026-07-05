@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cerca
+      POSTGRES_PASSWORD: cerca
+      POSTGRES_DB: cerca
+    ports:
+      - "5433:5432"
+    volumes:
+      - cerca_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cerca -d cerca"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://cerca:cerca@postgres:5432/cerca
+      JWT_SECRET: change-me-to-a-long-random-string
+      PORT: 8080
+      RUST_LOG: backend=debug,tower_http=debug
+    ports:
+      - "8080:8080"
+
+volumes:
+  cerca_postgres_data:
