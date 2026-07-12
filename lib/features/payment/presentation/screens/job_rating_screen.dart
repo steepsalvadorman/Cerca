@@ -2,21 +2,69 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../cerca/application/cerca_controller.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
+import '../../../job_request/application/active_job_controller.dart';
+import '../../../technician/application/providers_controller.dart';
 
-class JobRatingScreen extends ConsumerWidget {
+class JobRatingScreen extends ConsumerStatefulWidget {
   const JobRatingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<JobRatingScreen> createState() => _JobRatingScreenState();
+}
+
+class _JobRatingScreenState extends ConsumerState<JobRatingScreen> {
+  final _commentController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit(int rating) async {
+    if (_submitting || rating == 0) return;
+    setState(() => _submitting = true);
+    try {
+      await ref.read(activeJobControllerProvider.notifier).rate(rating, comment: _commentController.text.trim());
+      final result = ref.read(activeJobControllerProvider);
+      if (result.hasError) throw result.error!;
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'No se pudo enviar tu calificación.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(cercaControllerProvider);
     final controller = ref.watch(cercaControllerProvider.notifier);
-    final provider = controller.selectedProvider;
+    final job = ref.watch(activeJobControllerProvider).value;
+    final providersPage = ref.watch(providersControllerProvider).value;
+
+    String providerName = '';
+    if (providersPage != null && job != null) {
+      if (job.technicianProfileId != null) {
+        for (final t in providersPage.technicians) {
+          if (t.id == job.technicianProfileId) providerName = t.name;
+        }
+      } else if (job.techTeamId != null) {
+        for (final t in providersPage.teams) {
+          if (t.id == job.techTeamId) providerName = t.name;
+        }
+      }
+    }
+    final rated = job?.rating != null;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -73,7 +121,7 @@ class JobRatingScreen extends ConsumerWidget {
                         style: CercaText.sora(fontSize: 11.5, color: AppColors.cercaWarnText, height: 1.5),
                       ),
                     ),
-                    if (state.paymentDone)
+                    if (rated)
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
@@ -89,7 +137,7 @@ class JobRatingScreen extends ConsumerWidget {
                             Text('¡Gracias por tu calificación!', style: CercaText.sora(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.cercaSuccessText)),
                             const SizedBox(height: 4),
                             Text(
-                              '${provider.name} recibió tu reseña. Recuerda coordinar el pago del trabajo directamente con él/ella.',
+                              '$providerName recibió tu reseña. Recuerda coordinar el pago del trabajo directamente con él/ella.',
                               textAlign: TextAlign.center,
                               style: CercaText.sora(fontSize: 12, color: const Color(0xFF4C7A63), height: 1.5),
                             ),
@@ -97,7 +145,7 @@ class JobRatingScreen extends ConsumerWidget {
                         ),
                       )
                     else ...[
-                      Text('¿Cómo estuvo el trabajo de ${provider.name}?', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      Text('¿Cómo estuvo el trabajo de $providerName?', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -116,6 +164,7 @@ class JobRatingScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 16),
                       TextField(
+                        controller: _commentController,
                         maxLines: 3,
                         style: CercaText.sora(fontSize: 12.5),
                         decoration: InputDecoration(
@@ -139,8 +188,12 @@ class JobRatingScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            if (!state.paymentDone)
-              PrimaryActionButton(label: 'Confirmar y calificar', onTap: controller.confirmPayment),
+            if (!rated)
+              PrimaryActionButton(
+                label: _submitting ? 'Enviando…' : 'Confirmar y calificar',
+                enabled: !_submitting && state.rating > 0,
+                onTap: () => _submit(state.rating),
+              ),
           ],
         ),
       ),

@@ -2,22 +2,83 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/application/auth_controller.dart';
 import '../../../cerca/application/cerca_controller.dart';
 import '../../../cerca/application/cerca_seed_data.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
+import '../../application/tech_profile_controller.dart';
 
-class TechProfileScreen extends ConsumerWidget {
+class TechProfileScreen extends ConsumerStatefulWidget {
   const TechProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TechProfileScreen> createState() => _TechProfileScreenState();
+}
+
+class _TechProfileScreenState extends ConsumerState<TechProfileScreen> {
+  final _oficioController = TextEditingController();
+  bool _prefilled = false;
+  bool _saved = false;
+
+  @override
+  void dispose() {
+    _oficioController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final cercaState = ref.read(cercaControllerProvider);
+    await ref.read(techProfileControllerProvider.notifier).save(
+          oficio: _oficioController.text.trim(),
+          coverageKm: cercaState.coverageKm,
+          availableDays: cercaState.availableDays.toList(),
+          categories: cercaState.techCategories.toList(),
+        );
+    if (!mounted) return;
+
+    final result = ref.read(techProfileControllerProvider);
+    result.whenOrNull(
+      data: (_) => setState(() => _saved = true),
+      error: (error, _) {
+        final message = error is ApiException ? error.message : 'No se pudo guardar tu perfil.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(cercaControllerProvider);
     final controller = ref.watch(cercaControllerProvider.notifier);
+    final profileAsync = ref.watch(techProfileControllerProvider);
+    final userName = ref.watch(authControllerProvider).value?.user.name.trim() ?? '';
+
+    final profile = profileAsync.value;
+    if (profile != null && !_prefilled) {
+      _prefilled = true;
+      _oficioController.text = profile.oficio;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final c in profile.categories) {
+          if (!state.techCategories.contains(c)) controller.toggleTechCategory(c);
+        }
+        for (final c in state.techCategories.toList()) {
+          if (!profile.categories.contains(c)) controller.toggleTechCategory(c);
+        }
+        controller.setCoverageKm(profile.coverageKm);
+        for (final d in profile.availableDays) {
+          if (!state.availableDays.contains(d)) controller.toggleDay(d);
+        }
+        for (final d in state.availableDays.toList()) {
+          if (!profile.availableDays.contains(d)) controller.toggleDay(d);
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -33,12 +94,12 @@ class TechProfileScreen extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        const MonogramAvatar(text: 'MR', size: 56, borderRadius: 16, fontSize: 18),
+                        MonogramAvatar(text: userName.isEmpty ? '?' : userName[0].toUpperCase(), size: 56, borderRadius: 16, fontSize: 18),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Marcelo Reyes', style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w600)),
+                            Text(userName, style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w600)),
                             const SizedBox(height: 2),
                             Text('Cambiar foto', style: CercaText.sora(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.cercaPrimary)),
                           ],
@@ -47,10 +108,21 @@ class TechProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 18),
                     _FieldLabel('Nombre'),
-                    _ReadonlyField('Marcelo Reyes'),
+                    _ReadonlyField(userName),
                     const SizedBox(height: 14),
                     _FieldLabel('Oficio principal'),
-                    _ReadonlyField('Gasfitero'),
+                    TextField(
+                      controller: _oficioController,
+                      style: CercaText.sora(fontSize: 13.5),
+                      decoration: InputDecoration(
+                        hintText: 'Ej: Gasfitero',
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.cercaBorder)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.cercaBorder)),
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     _FieldLabel('Categorías que ofreces'),
                     const SizedBox(height: 8),
@@ -124,7 +196,7 @@ class TechProfileScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    if (state.techProfileSaved) ...[
+                    if (_saved) ...[
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -143,7 +215,11 @@ class TechProfileScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            PrimaryActionButton(label: 'Guardar cambios', onTap: controller.saveTechProfile),
+            PrimaryActionButton(
+              label: profileAsync.isLoading ? 'Guardando…' : 'Guardar cambios',
+              enabled: !profileAsync.isLoading,
+              onTap: _save,
+            ),
           ],
         ),
       ),

@@ -1,0 +1,118 @@
+use serde::{Deserialize, Serialize};
+
+use crate::features::technician::domain::{TechTeam, TechnicianDocument, TechnicianProfile};
+
+#[derive(Serialize)]
+pub struct TechnicianResponse {
+    pub id: i32,
+    pub name: String,
+    pub mono: String,
+    pub oficio: String,
+    pub rating: f64,
+    pub reviews: i32,
+    pub distance: String,
+    pub price_label: String,
+    pub pin_top: f64,
+    pub pin_left: f64,
+    pub coverage_km: i32,
+    pub available_days: Vec<String>,
+    pub categories: Vec<String>,
+    pub is_verified: bool,
+}
+
+impl From<TechnicianProfile> for TechnicianResponse {
+    fn from(p: TechnicianProfile) -> Self {
+        Self {
+            id: p.id,
+            name: p.name,
+            mono: p.mono,
+            oficio: p.oficio,
+            rating: p.rating,
+            reviews: p.reviews,
+            distance: p.distance,
+            price_label: p.price_label,
+            pin_top: p.pin_top,
+            pin_left: p.pin_left,
+            coverage_km: p.coverage_km,
+            available_days: p.available_days,
+            categories: p.categories,
+            is_verified: p.is_verified,
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct TechTeamResponse {
+    pub id: i32,
+    pub name: String,
+    pub mono: String,
+    pub oficio: String,
+    pub rating: f64,
+    pub reviews: i32,
+    pub distance: String,
+    pub price_label: String,
+    pub pin_top: f64,
+    pub pin_left: f64,
+    pub crew: i32,
+    pub projects: i32,
+    pub labor_cost: i32,
+    pub materials_cost: i32,
+    pub mobility_cost: i32,
+}
+
+impl From<TechTeam> for TechTeamResponse {
+    fn from(t: TechTeam) -> Self {
+        Self {
+            id: t.id,
+            name: t.name,
+            mono: t.mono,
+            oficio: t.oficio,
+            rating: t.rating,
+            reviews: t.reviews,
+            distance: t.distance,
+            price_label: t.price_label,
+            pin_top: t.pin_top,
+            pin_left: t.pin_left,
+            crew: t.crew,
+            projects: t.projects,
+            labor_cost: t.labor_cost,
+            materials_cost: t.materials_cost,
+            mobility_cost: t.mobility_cost,
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct ListProvidersResponse {
+    pub technicians: Vec<TechnicianResponse>,
+    pub teams: Vec<TechTeamResponse>,
+}
+
+#[derive(Deserialize)]
+pub struct SaveProfileRequest {
+    pub oficio: String,
+    pub coverage_km: i32,
+    pub available_days: Vec<String>,
+    pub categories: Vec<String>,
+}
+
+#[derive(Deserialize)]
+pub struct ToggleDocRequest {
+    pub document_key: String,
+    pub status: String, // "uploaded" or "pending"
+}
+
+#[derive(Serialize)]
+pub struct DocResponse {
+    pub document_key: String,
+    pub status: String,
+}
+
+impl From<TechnicianDocument> for DocResponse {
+    fn from(d: TechnicianDocument) -> Self {
+        Self {
+            document_key: d.document_key,
+            status: d.status.as_str().to_string(),
+        }
+    }
+}

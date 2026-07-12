@@ -4,14 +4,81 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/application/auth_controller.dart';
 import '../../../cerca/application/cerca_controller.dart';
 import '../../../cerca/application/cerca_seed_data.dart';
 import '../../../cerca/application/cerca_state.dart';
 import '../../../cerca/domain/entities/category.dart';
-import '../../../cerca/domain/entities/service_provider.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../../cerca/presentation/widgets/verified_badge.dart';
+import '../../../technician/application/providers_controller.dart';
+import '../../../technician/domain/tech_team.dart';
+import '../../../technician/domain/technician.dart';
+
+/// Either a [Technician] or a [TechTeam] — the two provider kinds shown
+/// on the map/list, unified by the fields this screen actually reads.
+sealed class _Provider {
+  const _Provider();
+
+  int get id;
+  String get name;
+  String get mono;
+  String get oficio;
+  double get rating;
+  String get distance;
+  String get priceLabel;
+  double get pinTop;
+  double get pinLeft;
+}
+
+class _TechnicianProvider extends _Provider {
+  const _TechnicianProvider(this.value);
+  final Technician value;
+
+  @override
+  int get id => value.id;
+  @override
+  String get name => value.name;
+  @override
+  String get mono => value.mono;
+  @override
+  String get oficio => value.oficio;
+  @override
+  double get rating => value.rating;
+  @override
+  String get distance => value.distance;
+  @override
+  String get priceLabel => value.priceLabel;
+  @override
+  double get pinTop => value.pinTop;
+  @override
+  double get pinLeft => value.pinLeft;
+}
+
+class _TeamProvider extends _Provider {
+  const _TeamProvider(this.value);
+  final TechTeam value;
+
+  @override
+  int get id => value.id;
+  @override
+  String get name => value.name;
+  @override
+  String get mono => value.mono;
+  @override
+  String get oficio => value.oficio;
+  @override
+  double get rating => value.rating;
+  @override
+  String get distance => value.distance;
+  @override
+  String get priceLabel => value.priceLabel;
+  @override
+  double get pinTop => value.pinTop;
+  @override
+  double get pinLeft => value.pinLeft;
+}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -22,9 +89,14 @@ class HomeScreen extends ConsumerWidget {
     final controller = ref.watch(cercaControllerProvider.notifier);
     final isPuntual = state.jobKind == JobKind.puntual;
     final categories = isPuntual ? CercaSeedData.categories : CercaSeedData.projectCategories;
-    final providers = isPuntual
-        ? CercaSeedData.technicians.cast<ServiceProvider>()
-        : CercaSeedData.teams.cast<ServiceProvider>();
+    final userName = ref.watch(authControllerProvider).value?.user.name.trim().split(' ').first ?? '';
+    final providersAsync = ref.watch(providersControllerProvider);
+    final providersPage = providersAsync.value;
+    final List<_Provider> providers = providersPage == null
+        ? const []
+        : isPuntual
+            ? providersPage.technicians.map(_TechnicianProvider.new).toList()
+            : providersPage.teams.map(_TeamProvider.new).toList();
 
     return Scaffold(
       backgroundColor: AppColors.cercaBackground,
@@ -42,7 +114,7 @@ class HomeScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Hola, Sofía', style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary)),
+                            Text('Hola, $userName', style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary)),
                             const SizedBox(height: 2),
                             Text('¿Qué necesitas hoy?', style: CercaText.lora(fontSize: 20)),
                           ],
@@ -51,7 +123,7 @@ class HomeScreen extends ConsumerWidget {
                       InkWell(
                         onTap: () => context.go(RoutePaths.clientAccount),
                         borderRadius: BorderRadius.circular(18),
-                        child: const MonogramAvatar(text: 'SH', size: 36, borderRadius: 18, fontSize: 12.5),
+                        child: MonogramAvatar(text: userName.isEmpty ? '?' : userName[0].toUpperCase(), size: 36, borderRadius: 18, fontSize: 12.5),
                       ),
                     ],
                   ),
@@ -112,21 +184,36 @@ class HomeScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        _MapPreview(providers: providers, onSelect: (p) => _select(context, controller, p)),
-                        const SizedBox(height: 18),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              isPuntual ? 'Técnicos cerca de ti' : 'Equipos cerca de ti',
-                              style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w600),
+                        if (providersAsync.isLoading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else if (providersAsync.hasError)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Text(
+                              'No se pudieron cargar los técnicos. Desliza para reintentar.',
+                              style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary),
                             ),
-                            Text('Ver todos', style: CercaText.sora(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.cercaPrimary)),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        for (final p in providers)
-                          _ProviderRow(provider: p, onTap: () => _select(context, controller, p)),
+                          )
+                        else ...[
+                          _MapPreview(providers: providers, onSelect: (p) => _select(context, controller, p)),
+                          const SizedBox(height: 18),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                isPuntual ? 'Técnicos cerca de ti' : 'Equipos cerca de ti',
+                                style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w600),
+                              ),
+                              Text('Ver todos', style: CercaText.sora(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.cercaPrimary)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          for (final p in providers)
+                            _ProviderRow(provider: p, onTap: () => _select(context, controller, p)),
+                        ],
                       ],
                     ),
                   ),
@@ -162,8 +249,8 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _select(BuildContext context, CercaController controller, ServiceProvider provider) {
-    if (provider is TechTeam) {
+  void _select(BuildContext context, CercaController controller, _Provider provider) {
+    if (provider is _TeamProvider) {
       controller.selectTeam(provider.id);
     } else {
       controller.selectTech(provider.id);
@@ -236,8 +323,8 @@ class _CategoryChip extends StatelessWidget {
 
 class _MapPreview extends StatelessWidget {
   const _MapPreview({required this.providers, required this.onSelect});
-  final List<ServiceProvider> providers;
-  final void Function(ServiceProvider) onSelect;
+  final List<_Provider> providers;
+  final void Function(_Provider) onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -303,7 +390,7 @@ class _MapPreview extends StatelessWidget {
 
 class _ProviderRow extends StatelessWidget {
   const _ProviderRow({required this.provider, required this.onTap});
-  final ServiceProvider provider;
+  final _Provider provider;
   final VoidCallback onTap;
 
   @override

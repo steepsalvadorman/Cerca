@@ -4,29 +4,67 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../cerca/application/cerca_controller.dart';
-import '../../../cerca/application/cerca_state.dart';
+import '../../../auth/application/auth_controller.dart';
 import '../../../cerca/presentation/widgets/cerca_logo_mark.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 
-class LoginScreen extends ConsumerWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
-  Future<void> _doLogin(BuildContext context, CercaController controller, CercaState state) async {
-    if (state.loginAnimating) return;
-    controller.startLoginAnimation();
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
-    if (!context.mounted) return;
-    controller.finishLoginAnimation();
-    context.go(RoutePaths.welcome);
+  @override
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _doLogin(bool isLoading) async {
+    if (isLoading) return;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa tu correo y contraseña.')),
+      );
+      return;
+    }
+
+    await ref
+        .read(authControllerProvider.notifier)
+        .login(email: email, password: password);
+    if (!mounted) return;
+
+    final result = ref.read(authControllerProvider);
+    result.whenOrNull(
+      data: (session) {
+        if (session != null) context.go(RoutePaths.welcome);
+      },
+      error: (error, _) {
+        final message = error is ApiException
+            ? error.message
+            : 'No se pudo iniciar sesión.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      },
+    );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(cercaControllerProvider);
-    final controller = ref.watch(cercaControllerProvider.notifier);
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = authState.isLoading;
 
     return Scaffold(
       body: Container(
@@ -49,130 +87,193 @@ class LoginScreen extends ConsumerWidget {
                   children: [
                     const CercaLogoMark(size: 17),
                     const SizedBox(width: 8),
-                    Text('Cerca', style: CercaText.lora(fontSize: 17, color: AppColors.cercaPrimary)),
+                    Text(
+                      'Cerca',
+                      style: CercaText.lora(
+                        fontSize: 17,
+                        color: AppColors.cercaPrimary,
+                      ),
+                    ),
                   ],
                 ),
                 Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _LoginMark(animating: state.loginAnimating),
-                        const SizedBox(height: 22),
-                        if (state.loginAnimating)
-                          Text('Ingresando…', style: CercaText.sora(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary))
-                        else ...[
-                          Text('Bienvenido de vuelta', style: CercaText.lora(fontSize: 29)),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Técnicos verificados,\na un toque de tu puerta.',
-                            textAlign: TextAlign.center,
-                            style: CercaText.sora(fontSize: 16.5, fontWeight: FontWeight.w500, color: const Color(0xFF5A4E49), height: 1.6),
-                          ),
-                          const SizedBox(height: 22),
-                          SizedBox(
-                            width: double.infinity,
-                            child: Column(
-                              children: [
-                                if (state.loginRemembered)
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      border: Border.all(color: AppColors.cercaBorder),
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 48,
-                                          height: 48,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: AppColors.cercaSurfaceTint,
-                                            borderRadius: BorderRadius.circular(14),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _LoginMark(animating: isLoading),
+                              const SizedBox(height: 22),
+                              if (isLoading)
+                                Text(
+                                  'Ingresando…',
+                                  style: CercaText.sora(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.cercaPrimary,
+                                  ),
+                                )
+                              else ...[
+                                Text(
+                                  'Bienvenido de vuelta',
+                                  style: CercaText.lora(fontSize: 29),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Técnicos verificados,\na un toque de tu puerta.',
+                                  textAlign: TextAlign.center,
+                                  style: CercaText.sora(
+                                    fontSize: 16.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF5A4E49),
+                                    height: 1.6,
+                                  ),
+                                ),
+                                const SizedBox(height: 22),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Column(
+                                    children: [
+                                      TextField(
+                                        controller: _emailController,
+                                        textAlign: TextAlign.center,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        style: CercaText.sora(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText: 'Correo electrónico',
+                                          hintStyle: CercaText.sora(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.cercaTextMuted,
                                           ),
-                                          child: Text(
-                                            controller.loginInitial,
-                                            style: CercaText.lora(fontSize: 19, color: AppColors.cercaPrimary),
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                vertical: 17,
+                                                horizontal: 16,
+                                              ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: AppColors.cercaBorder,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: AppColors.cercaBorder,
+                                            ),
                                           ),
                                         ),
-                                        const SizedBox(width: 14),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                state.loginName,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: CercaText.sora(fontSize: 17, fontWeight: FontWeight.w700),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: _passwordController,
+                                        textAlign: TextAlign.center,
+                                        obscureText: true,
+                                        style: CercaText.sora(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText: 'Contraseña',
+                                          hintStyle: CercaText.sora(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.cercaTextMuted,
+                                          ),
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                vertical: 17,
+                                                horizontal: 16,
                                               ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                'Cuenta recordada en este dispositivo',
-                                                style: CercaText.sora(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.cercaTextSecondary),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: AppColors.cercaBorder,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: AppColors.cercaBorder,
+                                            ),
+                                          ),
+                                        ),
+                                        onSubmitted: (_) => _doLogin(isLoading),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      InkWell(
+                                        onTap: () => _doLogin(isLoading),
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(22),
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.cercaPrimary,
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: AppColors.cercaPrimary
+                                                    .withValues(alpha: 0.32),
+                                                blurRadius: 28,
+                                                offset: const Offset(0, 12),
                                               ),
                                             ],
                                           ),
+                                          child: Text(
+                                            'Ingresar',
+                                            style: CercaText.sora(
+                                              fontSize: 19,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                          ),
                                         ),
-                                      ],
-                                    ),
-                                  )
-                                else
-                                  TextField(
-                                    textAlign: TextAlign.center,
-                                    onChanged: controller.setLoginName,
-                                    style: CercaText.sora(fontSize: 17, fontWeight: FontWeight.w600),
-                                    decoration: InputDecoration(
-                                      hintText: 'Tu nombre',
-                                      hintStyle: CercaText.sora(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.cercaTextMuted),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      contentPadding: const EdgeInsets.symmetric(vertical: 17, horizontal: 16),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: const BorderSide(color: AppColors.cercaBorder),
                                       ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: const BorderSide(color: AppColors.cercaBorder),
-                                      ),
-                                    ),
-                                  ),
-                                const SizedBox(height: 16),
-                                InkWell(
-                                  onTap: () => _doLogin(context, controller, state),
-                                  borderRadius: BorderRadius.circular(18),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(22),
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.cercaPrimary,
-                                      borderRadius: BorderRadius.circular(18),
-                                      boxShadow: [
-                                        BoxShadow(color: AppColors.cercaPrimary.withValues(alpha: 0.32), blurRadius: 28, offset: const Offset(0, 12)),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      controller.loginButtonLabel,
-                                      style: CercaText.sora(fontSize: 19, fontWeight: FontWeight.w700, color: Colors.white),
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
                 Text(
                   'Al continuar aceptas nuestros términos y el uso de tu ubicación para mostrarte técnicos cercanos.',
                   textAlign: TextAlign.center,
-                  style: CercaText.sora(fontSize: 11.5, fontWeight: FontWeight.w500, color: AppColors.cercaTextMuted, height: 1.5),
+                  style: CercaText.sora(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.cercaTextMuted,
+                    height: 1.5,
+                  ),
                 ),
                 InkWell(
                   onTap: () => context.go(RoutePaths.register),
@@ -180,7 +281,11 @@ class LoginScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: 14),
                     child: Text(
                       '¿Eres nuevo? Crea tu cuenta',
-                      style: CercaText.sora(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary),
+                      style: CercaText.sora(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.cercaPrimary,
+                      ),
                     ),
                   ),
                 ),
@@ -211,11 +316,24 @@ class _LoginMarkState extends State<_LoginMark> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _rotate = AnimationController(vsync: this, duration: const Duration(seconds: 10))..repeat();
-    _breathe = AnimationController(vsync: this, duration: const Duration(milliseconds: 1300), lowerBound: 1.0, upperBound: 1.05)
-      ..repeat(reverse: true);
-    _ring = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
-    _pop = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _rotate = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+    _breathe = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+      lowerBound: 1.0,
+      upperBound: 1.05,
+    )..repeat(reverse: true);
+    _ring = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _pop = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
     if (widget.animating) {
       _ring.repeat();
       _pop.forward();
@@ -259,7 +377,10 @@ class _LoginMarkState extends State<_LoginMark> with TickerProviderStateMixin {
                 width: 96,
                 height: 96,
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.cercaPrimary.withValues(alpha: 0.3), width: 1.5),
+                  border: Border.all(
+                    color: AppColors.cercaPrimary.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
                   borderRadius: BorderRadius.circular(19.2),
                 ),
               ),
@@ -291,20 +412,30 @@ class _LoginMarkState extends State<_LoginMark> with TickerProviderStateMixin {
                       colors: [Color(0xFF8A2C37), Color(0xFF6B1F28)],
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: AppColors.cercaPrimary.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 12))],
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.cercaPrimary.withValues(alpha: 0.35),
+                        blurRadius: 30,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           if (widget.animating)
             FadeTransition(
-              opacity: CurvedAnimation(parent: _pop, curve: const Interval(0.4, 1.0)),
+              opacity: CurvedAnimation(
+                parent: _pop,
+                curve: const Interval(0.4, 1.0),
+              ),
               child: const Icon(Icons.check, color: Colors.white, size: 40),
             ),
           if (!widget.animating)
             AnimatedBuilder(
               animation: _breathe,
-              builder: (context, child) => Transform.scale(scale: _breathe.value, child: child),
+              builder: (context, child) =>
+                  Transform.scale(scale: _breathe.value, child: child),
               child: const CercaLogoMark(size: 84),
             ),
         ],

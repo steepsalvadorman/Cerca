@@ -5,20 +5,84 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../cerca/application/cerca_controller.dart';
-import '../../../cerca/domain/entities/service_provider.dart';
 import '../../../cerca/presentation/widgets/back_circle_button.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/verified_badge.dart';
+import '../../application/providers_controller.dart';
+import '../../domain/tech_team.dart';
+
+class _ProfileView {
+  const _ProfileView({
+    required this.mono,
+    required this.name,
+    required this.oficio,
+    required this.distance,
+    required this.rating,
+    required this.reviews,
+    required this.priceLabel,
+    this.team,
+  });
+
+  final String mono;
+  final String name;
+  final String oficio;
+  final String distance;
+  final double rating;
+  final int reviews;
+  final String priceLabel;
+  final TechTeam? team;
+}
 
 class TechnicianProfileScreen extends ConsumerWidget {
   const TechnicianProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(cercaControllerProvider.notifier);
-    ref.watch(cercaControllerProvider);
-    final provider = controller.selectedProvider;
-    final isTeam = provider is TechTeam;
+    final state = ref.watch(cercaControllerProvider);
+    final providersAsync = ref.watch(providersControllerProvider);
+    final providersPage = providersAsync.value;
+
+    _ProfileView? profile;
+    if (providersPage != null) {
+      if (state.viewingTeam) {
+        for (final t in providersPage.teams) {
+          if (t.id == state.selectedTeamId) {
+            profile = _ProfileView(mono: t.mono, name: t.name, oficio: t.oficio, distance: t.distance, rating: t.rating, reviews: t.reviews, priceLabel: t.priceLabel, team: t);
+            break;
+          }
+        }
+      } else {
+        for (final t in providersPage.technicians) {
+          if (t.id == state.selectedTechId) {
+            profile = _ProfileView(mono: t.mono, name: t.name, oficio: t.oficio, distance: t.distance, rating: t.rating, reviews: t.reviews, priceLabel: t.priceLabel);
+            break;
+          }
+        }
+      }
+    }
+
+    if (profile == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Center(
+            child: providersAsync.isLoading
+                ? const CircularProgressIndicator()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('No se pudo cargar este perfil.', style: CercaText.sora(fontSize: 14)),
+                      const SizedBox(height: 12),
+                      TextButton(onPressed: () => context.go(RoutePaths.home), child: const Text('Volver')),
+                    ],
+                  ),
+          ),
+        ),
+      );
+    }
+
+    final provider = profile;
+    final isTeam = provider.team != null;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -102,7 +166,7 @@ class TechnicianProfileScreen extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              if (provider case TechTeam(:final crew, :final projects))
+                              if (provider.team case TechTeam(:final crew, :final projects))
                                 _StatsRow(items: [
                                   _Stat('$crew', 'Integrantes'),
                                   _Stat('$projects', 'Proyectos'),

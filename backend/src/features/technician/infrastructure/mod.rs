@@ -1,0 +1,3 @@
+pub mod postgres_technician_repository;
+
+pub use postgres_technician_repository::PostgresTechnicianRepository;

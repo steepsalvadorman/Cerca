@@ -1,13 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../cerca/presentation/widgets/back_circle_button.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
+import '../../application/job_session_controller.dart';
 
-class ModeChooserScreen extends StatelessWidget {
+class ModeChooserScreen extends ConsumerStatefulWidget {
   const ModeChooserScreen({super.key});
+
+  @override
+  ConsumerState<ModeChooserScreen> createState() => _ModeChooserScreenState();
+}
+
+class _ModeChooserScreenState extends ConsumerState<ModeChooserScreen> {
+  bool _creating = false;
+
+  Future<void> _startBidding() async {
+    if (_creating) return;
+    setState(() => _creating = true);
+    try {
+      final job = await ref.read(jobRepositoryProvider).createJob(jobKind: 'bidding');
+      ref.read(jobSessionControllerProvider.notifier).setJobId(job.id);
+      if (!mounted) return;
+      context.go(RoutePaths.jobBidding);
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'No se pudo publicar el trabajo.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,8 +76,8 @@ class ModeChooserScreen extends StatelessWidget {
                       number: '2',
                       title: 'Licitación entre técnicos',
                       description: 'Publica el trabajo y recibe ofertas de varios técnicos verificados. Elige la mejor combinación de precio y calidad.',
-                      cta: 'Publicar trabajo ›',
-                      onTap: () => context.go(RoutePaths.jobBidding),
+                      cta: _creating ? 'Publicando…' : 'Publicar trabajo ›',
+                      onTap: _startBidding,
                     ),
                   ],
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../cerca/application/cerca_controller.dart';
@@ -11,12 +12,39 @@ import '../../../cerca/domain/entities/fee_type.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
+import '../../../job_request/application/active_job_controller.dart';
 
-class AppFeeScreen extends ConsumerWidget {
+class AppFeeScreen extends ConsumerStatefulWidget {
   const AppFeeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppFeeScreen> createState() => _AppFeeScreenState();
+}
+
+class _AppFeeScreenState extends ConsumerState<AppFeeScreen> {
+  bool _paying = false;
+
+  Future<void> _pay(String paymentMethod) async {
+    if (_paying) return;
+    setState(() => _paying = true);
+    try {
+      await ref.read(activeJobControllerProvider.notifier).payFee(paymentMethod);
+      final result = ref.read(activeJobControllerProvider);
+      if (result.hasError) throw result.error!;
+      ref.read(cercaControllerProvider.notifier).payFee();
+      if (!mounted) return;
+      context.go(RoutePaths.tracking);
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'No se pudo procesar el pago.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(cercaControllerProvider);
     final controller = ref.watch(cercaControllerProvider.notifier);
     final fee = controller.currentFeeConfig;
@@ -101,11 +129,9 @@ class AppFeeScreen extends ConsumerWidget {
               ),
             ),
             PrimaryActionButton(
-              label: 'Pagar ${formatClp(fee.amount)} y contactar',
-              onTap: () {
-                controller.payFee();
-                context.go(RoutePaths.tracking);
-              },
+              label: _paying ? 'Procesando…' : 'Pagar ${formatClp(fee.amount)} y contactar',
+              enabled: !_paying,
+              onTap: () => _pay(_paymentLabel(state.payment)),
             ),
           ],
         ),

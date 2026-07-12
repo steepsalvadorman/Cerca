@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/application/auth_controller.dart';
+import '../../../auth/domain/auth_user.dart';
 import '../../../cerca/presentation/widgets/cerca_logo_mark.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 
-class WelcomeScreen extends StatelessWidget {
+/// Lands here right after login/register. The role is no longer a manual
+/// either/or choice (the backend fixes it at registration) — this screen
+/// just greets the signed-in user and offers a single CTA matching their
+/// real account role.
+class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authControllerProvider).value;
+    final user = session?.user;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -33,7 +43,10 @@ class WelcomeScreen extends StatelessWidget {
                   children: [
                     const CercaLogoMark(size: 70),
                     const SizedBox(height: 20),
-                    Text('Cerca', style: CercaText.lora(fontSize: 26)),
+                    Text(
+                      user == null ? 'Cerca' : '¡Hola, ${user.name.trim().split(' ').first}!',
+                      style: CercaText.lora(fontSize: 26),
+                    ),
                     const SizedBox(height: 10),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -49,23 +62,25 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                Column(
-                  children: [
-                    _RoleCard(
-                      mono: 'H',
-                      title: 'Soy Cliente',
-                      subtitle: 'Necesito un técnico para un trabajo',
-                      onTap: () => context.go(RoutePaths.home),
-                    ),
-                    const SizedBox(height: 12),
-                    _RoleCard(
-                      mono: 'T',
-                      title: 'Soy Técnico',
-                      subtitle: 'Quiero ofrecer mis servicios',
-                      onTap: () => context.go(RoutePaths.techDocs),
-                    ),
-                  ],
-                ),
+                if (user == null)
+                  const SizedBox(
+                    height: 44,
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+                  )
+                else if (user.isTechnician)
+                  _RoleCard(
+                    mono: 'T',
+                    title: 'Continuar como Técnico',
+                    subtitle: 'Completa tu perfil y empieza a ofrecer tus servicios',
+                    onTap: () => context.go(RoutePaths.techDocs),
+                  )
+                else
+                  _RoleCard(
+                    mono: 'H',
+                    title: 'Continuar como Cliente',
+                    subtitle: 'Encuentra un técnico para tu próximo trabajo',
+                    onTap: () => context.go(RoutePaths.home),
+                  ),
               ],
             ),
           ),

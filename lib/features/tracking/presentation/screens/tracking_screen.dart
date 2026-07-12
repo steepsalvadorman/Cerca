@@ -2,25 +2,74 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../cerca/application/cerca_controller.dart';
 import '../../../cerca/application/cerca_seed_data.dart';
 import '../../../cerca/domain/entities/timeline_step.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
+import '../../../job_request/application/active_job_controller.dart';
+import '../../../job_request/domain/job_request.dart';
+import '../../../technician/application/providers_controller.dart';
 
-class TrackingScreen extends ConsumerWidget {
+class TrackingScreen extends ConsumerStatefulWidget {
   const TrackingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(cercaControllerProvider);
-    final controller = ref.watch(cercaControllerProvider.notifier);
-    final provider = controller.selectedProvider;
-    final canAdvance = state.jobStep < 3;
+  ConsumerState<TrackingScreen> createState() => _TrackingScreenState();
+}
+
+class _TrackingScreenState extends ConsumerState<TrackingScreen> {
+  bool _advancing = false;
+
+  Future<void> _advance() async {
+    if (_advancing) return;
+    setState(() => _advancing = true);
+    try {
+      await ref.read(activeJobControllerProvider.notifier).advance();
+      final result = ref.read(activeJobControllerProvider);
+      if (result.hasError) throw result.error!;
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'No se pudo actualizar el estado.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _advancing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final job = ref.watch(activeJobControllerProvider).value;
+    final providersPage = ref.watch(providersControllerProvider).value;
+    final jobStep = job?.timelineStep ?? 0;
+    final canAdvance = job != null && job.isActive && jobStep < 3;
+
+    String providerName = '';
+    String providerOficio = '';
+    String providerMono = '?';
+    if (providersPage != null && job != null) {
+      if (job.technicianProfileId != null) {
+        for (final t in providersPage.technicians) {
+          if (t.id == job.technicianProfileId) {
+            providerName = t.name;
+            providerOficio = t.oficio;
+            providerMono = t.mono;
+          }
+        }
+      } else if (job.techTeamId != null) {
+        for (final t in providersPage.teams) {
+          if (t.id == job.techTeamId) {
+            providerName = t.name;
+            providerOficio = t.oficio;
+            providerMono = t.mono;
+          }
+        }
+      }
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -76,7 +125,7 @@ class TrackingScreen extends ConsumerWidget {
                     Row(
                       children: [
                         for (final step in CercaSeedData.timelineSteps)
-                          Expanded(child: _TimelineDot(step: step, currentStep: state.jobStep)),
+                          Expanded(child: _TimelineDot(step: step, currentStep: jobStep)),
                       ],
                     ),
                     const SizedBox(height: 18),
@@ -90,14 +139,14 @@ class TrackingScreen extends ConsumerWidget {
                       ),
                       child: Row(
                         children: [
-                          MonogramAvatar(text: provider.mono, size: 38, borderRadius: 10, fontSize: 13),
+                          MonogramAvatar(text: providerMono, size: 38, borderRadius: 10, fontSize: 13),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(provider.name, style: CercaText.sora(fontSize: 13, fontWeight: FontWeight.w600)),
-                                Text(provider.oficio, style: CercaText.sora(fontSize: 11.5, color: AppColors.cercaTextSecondary)),
+                                Text(providerName, style: CercaText.sora(fontSize: 13, fontWeight: FontWeight.w600)),
+                                Text(providerOficio, style: CercaText.sora(fontSize: 11.5, color: AppColors.cercaTextSecondary)),
                               ],
                             ),
                           ),
@@ -125,9 +174,9 @@ class TrackingScreen extends ConsumerWidget {
                       ),
                       child: Column(
                         children: [
-                          _SummaryRow('Trabajo', 'Fuga de agua'),
+                          _SummaryRow('Trabajo', job?.title ?? 'Fuga de agua'),
                           const SizedBox(height: 6),
-                          _SummaryRow('Dirección', 'Av. Providencia 1234'),
+                          _SummaryRow('Dirección', job?.address ?? 'Av. Providencia 1234'),
                           const SizedBox(height: 6),
                           _SummaryRow('Acordado', '\$32.000', valueColor: AppColors.cercaPrimary, bold: true),
                         ],
@@ -138,10 +187,11 @@ class TrackingScreen extends ConsumerWidget {
               ),
             ),
             PrimaryActionButton(
-              label: canAdvance ? 'Actualizar estado' : 'Ir a pagar y calificar',
+              label: canAdvance ? (_advancing ? 'Actualizando…' : 'Actualizar estado') : 'Ir a pagar y calificar',
+              enabled: !_advancing,
               onTap: () {
                 if (canAdvance) {
-                  controller.advanceJob();
+                  _advance();
                 } else {
                   context.go(RoutePaths.jobRating);
                 }

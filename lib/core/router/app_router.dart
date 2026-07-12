@@ -1,6 +1,8 @@
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../features/auth/application/auth_controller.dart';
+import '../../features/auth/domain/auth_user.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/client_account/presentation/screens/client_account_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
@@ -22,10 +24,54 @@ import 'route_paths.dart';
 
 part 'app_router.g.dart';
 
+// Routes reachable without an authenticated session; the splash screen
+// owns its own timing/navigation, so it's exempt from the guard below.
+const _publicRoutes = {RoutePaths.splash, RoutePaths.login, RoutePaths.register};
+
+// Routes that only make sense for a client account. A technician account
+// hitting one of these (e.g. a stale deep link) is bounced to techDocs.
+const _clientOnlyRoutes = {
+  RoutePaths.home,
+  RoutePaths.providerProfile,
+  RoutePaths.jobMode,
+  RoutePaths.jobDirect,
+  RoutePaths.jobBidding,
+  RoutePaths.jobProjectQuote,
+  RoutePaths.jobFee,
+  RoutePaths.chat,
+  RoutePaths.tracking,
+  RoutePaths.jobRating,
+  RoutePaths.clientAccount,
+};
+
+// Routes that only make sense for a technician account.
+const _technicianOnlyRoutes = {RoutePaths.techDocs, RoutePaths.techProfile};
+
 @riverpod
 GoRouter appRouter(Ref ref) {
+  final authState = ref.watch(authControllerProvider);
+
   return GoRouter(
     initialLocation: RoutePaths.splash,
+    redirect: (context, state) {
+      final location = state.matchedLocation;
+      if (_publicRoutes.contains(location)) return null;
+
+      return authState.when(
+        data: (session) {
+          if (session == null) return RoutePaths.login;
+          if (session.user.isTechnician && _clientOnlyRoutes.contains(location)) {
+            return RoutePaths.techDocs;
+          }
+          if (session.user.isClient && _technicianOnlyRoutes.contains(location)) {
+            return RoutePaths.home;
+          }
+          return null;
+        },
+        loading: () => null,
+        error: (_, _) => RoutePaths.login,
+      );
+    },
     routes: [
       GoRoute(
         path: RoutePaths.splash,

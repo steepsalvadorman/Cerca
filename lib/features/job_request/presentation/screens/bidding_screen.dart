@@ -2,32 +2,69 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../cerca/application/cerca_controller.dart';
 import '../../../cerca/application/cerca_format.dart';
-import '../../../cerca/application/cerca_seed_data.dart';
 import '../../../cerca/application/cerca_state.dart';
-import '../../../cerca/domain/entities/job_offer.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
+import '../../application/active_job_controller.dart';
+import '../../application/job_session_controller.dart';
+import '../../application/offers_controller.dart';
+import '../../domain/job_offer.dart';
 
-class BiddingScreen extends ConsumerWidget {
+class BiddingScreen extends ConsumerStatefulWidget {
   const BiddingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BiddingScreen> createState() => _BiddingScreenState();
+}
+
+class _BiddingScreenState extends ConsumerState<BiddingScreen> {
+  bool _choosing = false;
+
+  Future<void> _choose(JobOffer offer) async {
+    if (_choosing) return;
+    setState(() => _choosing = true);
+    try {
+      await ref.read(activeJobControllerProvider.notifier).chooseOffer(offer.id);
+      final result = ref.read(activeJobControllerProvider);
+      if (result.hasError) throw result.error!;
+      ref.read(cercaControllerProvider.notifier).chooseOffer();
+      if (!mounted) return;
+      context.go(RoutePaths.jobFee);
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'No se pudo elegir esta oferta.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _choosing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(cercaControllerProvider);
     final controller = ref.watch(cercaControllerProvider.notifier);
-    final offers = controller.sortedOffers;
+    final jobId = ref.watch(jobSessionControllerProvider);
+    final offersAsync = jobId == null ? null : ref.watch(jobOffersProvider(jobId));
+
+    final offers = [...offersAsync?.value ?? const <JobOffer>[]];
+    if (state.sortBy == SortBy.price) {
+      offers.sort((a, b) => a.price.compareTo(b.price));
+    } else {
+      offers.sort((a, b) => b.rating.compareTo(a.rating));
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            CercaHeader(title: 'Ofertas recibidas', onBack: () => context.go(RoutePaths.jobMode)),
+            CercaHeader(title: 'Ofertas recibidas', onBack: () => context.go(RoutePaths.home)),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -35,7 +72,7 @@ class BiddingScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Instalar termo eléctrico · publicado hace 10 min · ${CercaSeedData.offers.length} ofertas',
+                      'Trabajo publicado · ${offers.length} ${offers.length == 1 ? 'oferta' : 'ofertas'}',
                       style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary),
                     ),
                     const SizedBox(height: 12),
@@ -55,15 +92,26 @@ class BiddingScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    for (final offer in offers)
-                      _OfferCard(
-                        offer: offer,
-                        onChat: () => context.go(RoutePaths.chat),
-                        onChoose: () {
-                          controller.chooseOffer();
-                          context.go(RoutePaths.jobFee);
-                        },
-                      ),
+                    if (offersAsync != null && offersAsync.isLoading && offers.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (offers.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Text(
+                          'Aún no llegan ofertas de técnicos. Esta pantalla se actualiza sola.',
+                          style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary, height: 1.5),
+                        ),
+                      )
+                    else
+                      for (final offer in offers)
+                        _OfferCard(
+                          offer: offer,
+                          onChat: () => context.go(RoutePaths.chat),
+                          onChoose: _choosing ? null : () => _choose(offer),
+                        ),
                     Text(
                       'Al elegir una oferta, Cerca cobra una tarifa de licitación. El pago del trabajo se acuerda directo con el técnico.',
                       textAlign: TextAlign.center,
@@ -111,7 +159,7 @@ class _OfferCard extends StatelessWidget {
   const _OfferCard({required this.offer, required this.onChat, required this.onChoose});
   final JobOffer offer;
   final VoidCallback onChat;
-  final VoidCallback onChoose;
+  final VoidCallback? onChoose;
 
   @override
   Widget build(BuildContext context) {

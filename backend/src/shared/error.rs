@@ -4,17 +4,57 @@ use axum::Json;
 use serde_json::json;
 
 use crate::features::auth::domain::AuthError;
+use crate::features::chat::domain::ChatError;
+use crate::features::client::domain::ClientError;
+use crate::features::job::domain::JobError;
+use crate::features::technician::domain::TechnicianError;
+use crate::features::tracking::domain::TrackingError;
 
 /// Root HTTP error type. Each feature's domain error gets a `From` impl
 /// here so handlers can just use `?` and the interfaces layer stays the
 /// only place that knows about status codes.
 pub enum AppError {
     Auth(AuthError),
+    Technician(TechnicianError),
+    Client(ClientError),
+    Job(JobError),
+    Chat(ChatError),
+    Tracking(TrackingError),
 }
 
 impl From<AuthError> for AppError {
     fn from(error: AuthError) -> Self {
         AppError::Auth(error)
+    }
+}
+
+impl From<TechnicianError> for AppError {
+    fn from(error: TechnicianError) -> Self {
+        AppError::Technician(error)
+    }
+}
+
+impl From<ClientError> for AppError {
+    fn from(error: ClientError) -> Self {
+        AppError::Client(error)
+    }
+}
+
+impl From<JobError> for AppError {
+    fn from(error: JobError) -> Self {
+        AppError::Job(error)
+    }
+}
+
+impl From<ChatError> for AppError {
+    fn from(error: ChatError) -> Self {
+        AppError::Chat(error)
+    }
+}
+
+impl From<TrackingError> for AppError {
+    fn from(error: TrackingError) -> Self {
+        AppError::Tracking(error)
     }
 }
 
@@ -32,6 +72,45 @@ impl IntoResponse for AppError {
                 tracing::error!(error = %self, "internal error handling request");
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
             }
+
+            AppError::Technician(TechnicianError::TechnicianNotFound)
+            | AppError::Technician(TechnicianError::TeamNotFound)
+            | AppError::Technician(TechnicianError::DocumentNotFound) => (StatusCode::NOT_FOUND, self.to_string()),
+            AppError::Technician(TechnicianError::InvalidDocumentStatus(_)) => (StatusCode::BAD_REQUEST, self.to_string()),
+            AppError::Technician(TechnicianError::Repository(_)) => {
+                tracing::error!(error = %self, "technician internal error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
+            }
+
+            AppError::Client(ClientError::ClientNotFound)
+            | AppError::Client(ClientError::AddressNotFound)
+            | AppError::Client(ClientError::PaymentMethodNotFound) => (StatusCode::NOT_FOUND, self.to_string()),
+            AppError::Client(ClientError::Repository(_)) => {
+                tracing::error!(error = %self, "client internal error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
+            }
+
+            AppError::Job(JobError::JobNotFound)
+            | AppError::Job(JobError::OfferNotFound) => (StatusCode::NOT_FOUND, self.to_string()),
+            AppError::Job(JobError::Unauthorized) => (StatusCode::FORBIDDEN, self.to_string()),
+            AppError::Job(JobError::InvalidStatusTransition) => (StatusCode::BAD_REQUEST, self.to_string()),
+            AppError::Job(JobError::Repository(_)) => {
+                tracing::error!(error = %self, "job internal error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
+            }
+
+            AppError::Chat(ChatError::Unauthorized) => (StatusCode::FORBIDDEN, self.to_string()),
+            AppError::Chat(ChatError::Repository(_)) => {
+                tracing::error!(error = %self, "chat internal error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
+            }
+
+            AppError::Tracking(TrackingError::LocationNotFound) => (StatusCode::NOT_FOUND, self.to_string()),
+            AppError::Tracking(TrackingError::Unauthorized) => (StatusCode::FORBIDDEN, self.to_string()),
+            AppError::Tracking(TrackingError::Repository(_)) => {
+                tracing::error!(error = %self, "tracking internal error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
+            }
         };
 
         (status, Json(json!({ "error": public_message }))).into_response()
@@ -42,6 +121,11 @@ impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AppError::Auth(e) => write!(f, "{e}"),
+            AppError::Technician(e) => write!(f, "{e}"),
+            AppError::Client(e) => write!(f, "{e}"),
+            AppError::Job(e) => write!(f, "{e}"),
+            AppError::Chat(e) => write!(f, "{e}"),
+            AppError::Tracking(e) => write!(f, "{e}"),
         }
     }
 }

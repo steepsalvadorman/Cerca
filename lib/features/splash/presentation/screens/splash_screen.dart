@@ -1,24 +1,29 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/route_paths.dart';
+import '../../../auth/application/auth_controller.dart';
 import '../../../cerca/presentation/widgets/cerca_logo_mark.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 
 /// Animated brand intro: the CodeCraftPeru studio mark hands off to the
-/// Cerca mark, then auto-advances to Login. Matches the source design's
-/// staggered CSS keyframe timings, reimplemented as a short Timer
-/// sequence driving Flutter's implicit animations.
-class SplashScreen extends StatefulWidget {
+/// Cerca mark, then auto-advances once the brand animation finishes AND
+/// the stored session (if any) has been restored — whichever comes
+/// last — landing on `/welcome` (signed in) or `/login` (signed out).
+/// Matches the source design's staggered CSS keyframe timings,
+/// reimplemented as a short Timer sequence driving Flutter's implicit
+/// animations.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
   bool _craftFadingOut = false;
   bool _cercaEntered = false;
   bool _showFooter = false;
@@ -47,20 +52,47 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _schedule(1700, () => _breathe.repeat(reverse: true));
     _schedule(1800, () => setState(() => _showTitle = true));
     _schedule(2050, () => setState(() => _showTagline = true));
-    _schedule(3200, _goLogin);
+    _schedule(3200, _finishAnimation);
   }
 
   void _schedule(int milliseconds, VoidCallback callback) {
     _timers.add(Timer(Duration(milliseconds: milliseconds), callback));
   }
 
-  void _goLogin() {
+  bool _animationDone = false;
+
+  Future<void> _finishAnimation() async {
+    _animationDone = true;
+    final session = await ref.read(authControllerProvider.future);
+    _navigate(session != null);
+  }
+
+  void _navigate(bool signedIn) {
     if (_navigated || !mounted) return;
     _navigated = true;
     for (final timer in _timers) {
       timer.cancel();
     }
-    context.go(RoutePaths.login);
+    context.go(signedIn ? RoutePaths.welcome : RoutePaths.login);
+  }
+
+  Future<void> _goLogin() async {
+    // Manual tap-to-skip: still waits for session restore so we route to
+    // the right place instead of always bouncing to /login.
+    if (!_animationDone) {
+      for (final timer in _timers) {
+        timer.cancel();
+      }
+      _animationDone = true;
+    }
+    final authState = ref.read(authControllerProvider);
+    final session = authState.value;
+    if (authState.isLoading) {
+      final resolved = await ref.read(authControllerProvider.future);
+      _navigate(resolved != null);
+    } else {
+      _navigate(session != null);
+    }
   }
 
   @override

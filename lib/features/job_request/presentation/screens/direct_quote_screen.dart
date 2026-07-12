@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../cerca/application/cerca_controller.dart';
@@ -9,15 +10,69 @@ import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../../cerca/presentation/widgets/verified_badge.dart';
+import '../../../technician/application/providers_controller.dart';
+import '../../../technician/domain/technician.dart';
+import '../../application/job_session_controller.dart';
 
-class DirectQuoteScreen extends ConsumerWidget {
+class DirectQuoteScreen extends ConsumerStatefulWidget {
   const DirectQuoteScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(cercaControllerProvider.notifier);
-    ref.watch(cercaControllerProvider);
-    final provider = controller.selectedProvider;
+  ConsumerState<DirectQuoteScreen> createState() => _DirectQuoteScreenState();
+}
+
+class _DirectQuoteScreenState extends ConsumerState<DirectQuoteScreen> {
+  bool _accepting = false;
+
+  Future<void> _acceptQuote(Technician provider) async {
+    if (_accepting) return;
+    setState(() => _accepting = true);
+    try {
+      final job = await ref.read(jobRepositoryProvider).createJob(
+            technicianProfileId: provider.id,
+            jobKind: 'direct',
+          );
+      ref.read(jobSessionControllerProvider.notifier).setJobId(job.id);
+      ref.read(cercaControllerProvider.notifier).acceptDirect();
+      if (!mounted) return;
+      context.go(RoutePaths.jobFee);
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'No se pudo aceptar la cotización.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cercaState = ref.watch(cercaControllerProvider);
+    final providersAsync = ref.watch(providersControllerProvider);
+    final providersPage = providersAsync.value;
+
+    Technician? provider;
+    if (providersPage != null) {
+      for (final t in providersPage.technicians) {
+        if (t.id == cercaState.selectedTechId) {
+          provider = t;
+          break;
+        }
+      }
+    }
+
+    if (provider == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Center(
+            child: providersAsync.isLoading
+                ? const CircularProgressIndicator()
+                : TextButton(onPressed: () => context.go(RoutePaths.home), child: const Text('Volver')),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -144,16 +199,13 @@ class DirectQuoteScreen extends ConsumerWidget {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: () {
-                        controller.acceptDirect();
-                        context.go(RoutePaths.jobFee);
-                      },
+                      onPressed: () => _acceptQuote(provider!),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.cercaPrimary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: Text('Aceptar cotización', style: CercaText.sora(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+                      child: Text(_accepting ? 'Aceptando…' : 'Aceptar cotización', style: CercaText.sora(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
                     ),
                   ),
                 ],

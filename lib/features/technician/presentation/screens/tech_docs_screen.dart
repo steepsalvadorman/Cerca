@@ -4,21 +4,29 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../cerca/application/cerca_controller.dart';
+import '../../../auth/application/auth_controller.dart';
 import '../../../cerca/application/cerca_seed_data.dart';
 import '../../../cerca/domain/entities/doc_requirement.dart';
 import '../../../cerca/presentation/widgets/back_circle_button.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
+import '../../application/tech_docs_controller.dart';
+import '../../domain/technician_document.dart';
 
 class TechDocsScreen extends ConsumerWidget {
   const TechDocsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(cercaControllerProvider);
-    final controller = ref.watch(cercaControllerProvider.notifier);
+    final docsAsync = ref.watch(techDocsControllerProvider);
+    final controller = ref.watch(techDocsControllerProvider.notifier);
+    final docs = docsAsync.value ?? const <TechnicianDocumentStatus>[];
+    final uploadedCount = docs.where((d) => d.isUploaded).length;
+    final totalCount = CercaSeedData.docRequirements.length;
+    final allUploaded = docs.isNotEmpty && uploadedCount == totalCount;
+    final userName = ref.watch(authControllerProvider).value?.user.name.trim() ?? '';
+    final initials = userName.isEmpty ? '?' : userName[0].toUpperCase();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -37,7 +45,7 @@ class TechDocsScreen extends ConsumerWidget {
                   InkWell(
                     onTap: () => context.go(RoutePaths.techProfile),
                     borderRadius: BorderRadius.circular(16),
-                    child: const MonogramAvatar(text: 'MR', size: 32, borderRadius: 16, fontSize: 12),
+                    child: MonogramAvatar(text: initials, size: 32, borderRadius: 16, fontSize: 12),
                   ),
                 ],
               ),
@@ -58,7 +66,7 @@ class TechDocsScreen extends ConsumerWidget {
                       children: [
                         Text('Progreso', style: CercaText.sora(fontSize: 12, color: AppColors.cercaTextSecondary)),
                         Text(
-                          '${controller.uploadedDocsCount} de ${CercaSeedData.docRequirements.length}',
+                          '$uploadedCount de $totalCount',
                           style: CercaText.sora(fontSize: 12, color: AppColors.cercaTextSecondary),
                         ),
                       ],
@@ -67,7 +75,7 @@ class TechDocsScreen extends ConsumerWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: controller.docsProgress,
+                        value: totalCount == 0 ? 0 : uploadedCount / totalCount,
                         minHeight: 6,
                         backgroundColor: AppColors.cercaBorder,
                         color: AppColors.cercaPrimary,
@@ -77,10 +85,10 @@ class TechDocsScreen extends ConsumerWidget {
                     for (final doc in CercaSeedData.docRequirements)
                       _DocRow(
                         doc: doc,
-                        uploaded: state.docs[doc.key] == DocStatus.uploaded,
-                        onTap: () => controller.toggleDoc(doc.key),
+                        uploaded: docs.any((d) => d.documentKey == doc.key && d.isUploaded),
+                        onTap: () => controller.toggle(doc.key),
                       ),
-                    if (state.docsSubmitted)
+                    if (allUploaded)
                       Container(
                         margin: const EdgeInsets.only(top: 16),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -90,7 +98,7 @@ class TechDocsScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '✓ Tu perfil fue enviado a revisión. Te avisaremos en 24–48 horas.',
+                          '✓ Documentación completa. Te avisaremos cuando quede verificada.',
                           style: CercaText.sora(fontSize: 13, color: AppColors.cercaSuccessText, height: 1.5),
                         ),
                       ),
@@ -99,9 +107,9 @@ class TechDocsScreen extends ConsumerWidget {
               ),
             ),
             PrimaryActionButton(
-              label: state.docsSubmitted ? 'Enviado a revisión' : 'Enviar a revisión',
-              enabled: controller.allDocsUploaded,
-              onTap: controller.submitDocs,
+              label: allUploaded ? 'Continuar a mi perfil' : 'Sube todos tus documentos',
+              enabled: allUploaded,
+              onTap: () => context.go(RoutePaths.techProfile),
             ),
           ],
         ),
