@@ -22,7 +22,7 @@ class TechnicianRepository {
   Future<ProvidersPage> getProviders({String? category}) async {
     try {
       final response = await _dio.get('/providers', queryParameters: {
-        if (category != null) 'category': category,
+        'category': ?category,
       });
       final data = response.data as Map<String, dynamic>;
       return ProvidersPage(
