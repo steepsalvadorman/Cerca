@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Cerca (emulador Android)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "Pixel_10_Pro"
+    },
+    {
+      "name": "Cerca (Linux desktop)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "linux"
+    }
+  ]
+}

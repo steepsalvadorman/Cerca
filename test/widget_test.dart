@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cachuelitoo2/main.dart';
+import 'package:cerca/main.dart';
 
 void main() {
   testWidgets('App boots into the animated splash and advances to Login', (tester) async {
