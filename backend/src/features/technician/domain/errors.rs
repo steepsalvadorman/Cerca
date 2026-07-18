@@ -1,5 +1,8 @@
 use thiserror::Error;
 
+// TeamNotFound/DocumentNotFound aren't constructed yet — reserved for
+// find_team_by_id and document lookups that don't check existence yet.
+#[allow(dead_code)]
 #[derive(Debug, Error, Clone)]
 pub enum TechnicianError {
     #[error("technician profile not found")]

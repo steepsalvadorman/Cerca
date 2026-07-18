@@ -25,6 +25,9 @@ impl DocStatus {
     }
 }
 
+// id/technician_profile_id are populated from the DB row but not read yet —
+// document_key is the only field the current handlers serialize back.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TechnicianDocument {
     pub id: Uuid,
