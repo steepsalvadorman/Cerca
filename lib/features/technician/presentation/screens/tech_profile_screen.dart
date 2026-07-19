@@ -210,6 +210,21 @@ class _TechProfileScreenState extends ConsumerState<TechProfileScreen> {
                           style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaSuccessText),
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      InkWell(
+                        onTap: () => context.go(RoutePaths.technicianJobs),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.cercaPrimary),
+                          ),
+                          child: Text('Ir a mis trabajos →', style: CercaText.sora(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.cercaPrimary)),
+                        ),
+                      ),
                     ],
                   ],
                 ),

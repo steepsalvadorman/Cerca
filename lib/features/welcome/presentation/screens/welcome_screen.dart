@@ -71,8 +71,8 @@ class WelcomeScreen extends ConsumerWidget {
                   _RoleCard(
                     mono: 'T',
                     title: 'Continuar como Técnico',
-                    subtitle: 'Completa tu perfil y empieza a ofrecer tus servicios',
-                    onTap: () => context.go(RoutePaths.techDocs),
+                    subtitle: 'Revisa tus trabajos y solicitudes abiertas a licitación',
+                    onTap: () => context.go(RoutePaths.technicianJobs),
                   )
                 else
                   _RoleCard(

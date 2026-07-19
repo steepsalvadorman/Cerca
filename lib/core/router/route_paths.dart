@@ -11,6 +11,8 @@ class RoutePaths {
   static const String welcome = '/welcome';
   static const String techDocs = '/tech/docs';
   static const String techProfile = '/tech/profile';
+  static const String technicianJobs = '/tech/jobs';
+  static const String technicianJobDetail = '/tech/jobs/detail';
   static const String home = '/home';
   static const String providerProfile = '/provider';
   static const String jobMode = '/job/mode';

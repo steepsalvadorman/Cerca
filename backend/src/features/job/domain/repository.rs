@@ -14,4 +14,6 @@ pub trait JobRepository: Send + Sync {
     async fn find_offer_by_id(&self, id: i32) -> Result<Option<JobOffer>, JobError>;
     async fn add_job_offer(&self, job_request_id: Uuid, technician_profile_id: i32, price: i32, eta: String) -> Result<(), JobError>;
     async fn find_client_history(&self, client_id: Uuid) -> Result<Vec<JobRequest>, JobError>;
+    async fn find_assigned_jobs(&self, technician_profile_id: i32) -> Result<Vec<JobRequest>, JobError>;
+    async fn find_open_bidding_jobs(&self, excluding_technician_profile_id: i32) -> Result<Vec<JobRequest>, JobError>;
 }

@@ -4,8 +4,15 @@ import '../../../core/network/api_client.dart';
 import '../domain/job_offer.dart';
 import '../domain/job_request.dart';
 
+class TechnicianJobsBundle {
+  const TechnicianJobsBundle({required this.assigned, required this.openForBid});
+
+  final List<JobRequest> assigned;
+  final List<JobRequest> openForBid;
+}
+
 /// Talks to the `job` feature of the backend (`/jobs`, `/jobs/{id}/...`,
-/// `/client/history`).
+/// `/client/history`, `/technician/jobs`).
 class JobRepository {
   JobRepository(this._dio);
 
@@ -77,6 +84,27 @@ class JobRepository {
   Future<void> chooseOffer(String jobId, int offerId) async {
     try {
       await _dio.post('/jobs/$jobId/offers/choose', data: {'offer_id': offerId});
+    } on DioException catch (e) {
+      throw apiExceptionOf(e);
+    }
+  }
+
+  Future<void> submitOffer(String jobId, {required int price, required String eta}) async {
+    try {
+      await _dio.post('/jobs/$jobId/offers', data: {'price': price, 'eta': eta});
+    } on DioException catch (e) {
+      throw apiExceptionOf(e);
+    }
+  }
+
+  Future<TechnicianJobsBundle> getTechnicianJobs() async {
+    try {
+      final response = await _dio.get('/technician/jobs');
+      final data = response.data as Map<String, dynamic>;
+      return TechnicianJobsBundle(
+        assigned: (data['assigned'] as List).map((e) => JobRequest.fromJson(e as Map<String, dynamic>)).toList(),
+        openForBid: (data['open_for_bid'] as List).map((e) => JobRequest.fromJson(e as Map<String, dynamic>)).toList(),
+      );
     } on DioException catch (e) {
       throw apiExceptionOf(e);
     }

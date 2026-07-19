@@ -1,6 +1,7 @@
 pub mod advance_progress;
 pub mod choose_offer;
 pub mod create_job;
+pub mod get_technician_jobs;
 pub mod pay_fee;
 pub mod rate_job;
 pub mod submit_offer;
@@ -11,6 +12,7 @@ use uuid::Uuid;
 pub use advance_progress::AdvanceProgressUseCase;
 pub use choose_offer::{ChooseOfferInput, ChooseOfferUseCase};
 pub use create_job::{CreateJobInput, CreateJobUseCase};
+pub use get_technician_jobs::{GetTechnicianJobsUseCase, TechnicianJobsOutput};
 pub use pay_fee::{PayFeeInput, PayFeeUseCase};
 pub use rate_job::{RateJobInput, RateJobUseCase};
 pub use submit_offer::{SubmitOfferInput, SubmitOfferUseCase};

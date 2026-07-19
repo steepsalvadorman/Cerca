@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::features::auth::interfaces::http::middleware::CurrentUser;
 use crate::features::job::application::{
     AdvanceProgressUseCase, ChooseOfferInput, ChooseOfferUseCase, CreateJobInput, CreateJobUseCase,
-    GetClientHistoryUseCase, GetJobOffersUseCase, GetJobRequestUseCase, PayFeeInput, PayFeeUseCase,
-    RateJobInput, RateJobUseCase, SubmitOfferInput, SubmitOfferUseCase,
+    GetClientHistoryUseCase, GetJobOffersUseCase, GetJobRequestUseCase, GetTechnicianJobsUseCase,
+    PayFeeInput, PayFeeUseCase, RateJobInput, RateJobUseCase, SubmitOfferInput, SubmitOfferUseCase,
 };
 use crate::features::job::domain::JobError;
 use crate::shared::AppError;
@@ -15,7 +15,7 @@ use crate::state::AppState;
 
 use super::dto::{
     ChooseOfferRequest, CreateJobRequest, JobOfferResponse, JobRequestResponse, PayFeeRequest,
-    RateJobRequest, SubmitOfferRequest,
+    RateJobRequest, SubmitOfferRequest, TechnicianJobsResponse,
 };
 
 pub async fn create_job(
@@ -156,4 +156,14 @@ pub async fn get_client_history(
     let history = use_case.execute(current_user.user_id).await?;
 
     Ok(Json(history.into_iter().map(Into::into).collect()))
+}
+
+pub async fn get_technician_jobs(
+    State(state): State<AppState>,
+    current_user: CurrentUser,
+) -> Result<Json<TechnicianJobsResponse>, AppError> {
+    let use_case = GetTechnicianJobsUseCase::new(state.job_repository.clone(), state.technician_repository.clone());
+    let jobs = use_case.execute(current_user.user_id).await?;
+
+    Ok(Json(TechnicianJobsResponse::from(jobs)))
 }

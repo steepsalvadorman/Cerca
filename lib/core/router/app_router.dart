@@ -17,6 +17,8 @@ import '../../features/payment/presentation/screens/job_rating_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 import '../../features/technician/presentation/screens/tech_docs_screen.dart';
 import '../../features/technician/presentation/screens/tech_profile_screen.dart';
+import '../../features/technician/presentation/screens/technician_job_detail_screen.dart';
+import '../../features/technician/presentation/screens/technician_jobs_screen.dart';
 import '../../features/technician/presentation/screens/technician_profile_screen.dart';
 import '../../features/tracking/presentation/screens/tracking_screen.dart';
 import '../../features/welcome/presentation/screens/welcome_screen.dart';
@@ -29,7 +31,9 @@ part 'app_router.g.dart';
 const _publicRoutes = {RoutePaths.splash, RoutePaths.login, RoutePaths.register};
 
 // Routes that only make sense for a client account. A technician account
-// hitting one of these (e.g. a stale deep link) is bounced to techDocs.
+// hitting one of these (e.g. a stale deep link) is bounced to their job inbox.
+// `chat` is deliberately excluded: both a client and the technician assigned
+// to a job need it, keyed off the same shared job session.
 const _clientOnlyRoutes = {
   RoutePaths.home,
   RoutePaths.providerProfile,
@@ -38,14 +42,18 @@ const _clientOnlyRoutes = {
   RoutePaths.jobBidding,
   RoutePaths.jobProjectQuote,
   RoutePaths.jobFee,
-  RoutePaths.chat,
   RoutePaths.tracking,
   RoutePaths.jobRating,
   RoutePaths.clientAccount,
 };
 
 // Routes that only make sense for a technician account.
-const _technicianOnlyRoutes = {RoutePaths.techDocs, RoutePaths.techProfile};
+const _technicianOnlyRoutes = {
+  RoutePaths.techDocs,
+  RoutePaths.techProfile,
+  RoutePaths.technicianJobs,
+  RoutePaths.technicianJobDetail,
+};
 
 @riverpod
 GoRouter appRouter(Ref ref) {
@@ -61,7 +69,7 @@ GoRouter appRouter(Ref ref) {
         data: (session) {
           if (session == null) return RoutePaths.login;
           if (session.user.isTechnician && _clientOnlyRoutes.contains(location)) {
-            return RoutePaths.techDocs;
+            return RoutePaths.technicianJobs;
           }
           if (session.user.isClient && _technicianOnlyRoutes.contains(location)) {
             return RoutePaths.home;
@@ -96,6 +104,14 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: RoutePaths.techProfile,
         builder: (context, state) => const TechProfileScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.technicianJobs,
+        builder: (context, state) => const TechnicianJobsScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.technicianJobDetail,
+        builder: (context, state) => const TechnicianJobDetailScreen(),
       ),
       GoRoute(
         path: RoutePaths.home,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
@@ -14,6 +16,7 @@ import '../../../cerca/presentation/widgets/primary_action_button.dart';
 import '../../../job_request/application/active_job_controller.dart';
 import '../../../job_request/domain/job_request.dart';
 import '../../../technician/application/providers_controller.dart';
+import '../../application/tracking_controller.dart';
 
 class TrackingScreen extends ConsumerStatefulWidget {
   const TrackingScreen({super.key});
@@ -47,6 +50,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     final providersPage = ref.watch(providersControllerProvider).value;
     final jobStep = job?.timelineStep ?? 0;
     final canAdvance = job != null && job.isActive && jobStep < 3;
+    final locationAsync = job == null ? null : ref.watch(technicianLocationProvider(job.id));
+    final location = locationAsync?.value;
 
     String providerName = '';
     String providerOficio = '';
@@ -85,40 +90,46 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        height: 120,
-                        color: AppColors.cercaMapBackground,
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              top: 12,
-                              right: 12,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                                decoration: BoxDecoration(color: AppColors.cercaMapMarker, borderRadius: BorderRadius.circular(20)),
-                                child: Text('ETA 18 min', style: CercaText.sora(fontSize: 10.5, fontWeight: FontWeight.w600, color: Colors.white)),
+                      child: SizedBox(
+                        height: 160,
+                        child: location == null
+                            ? Container(
+                                color: AppColors.cercaMapBackground,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  job == null || (job.technicianProfileId == null && job.techTeamId == null)
+                                      ? 'Aún no hay técnico asignado.'
+                                      : 'Esperando la ubicación del técnico…',
+                                  textAlign: TextAlign.center,
+                                  style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary),
+                                ),
+                              )
+                            : FlutterMap(
+                                options: MapOptions(
+                                  initialCenter: LatLng(location.latitude, location.longitude),
+                                  initialZoom: 15,
+                                ),
+                                children: [
+                                  TileLayer(
+                                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    userAgentPackageName: 'com.salvador.cachuelitoo2',
+                                  ),
+                                  MarkerLayer(markers: [
+                                    Marker(
+                                      point: LatLng(location.latitude, location.longitude),
+                                      width: 34,
+                                      height: 34,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: AppColors.cercaPrimary,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 3),
+                                        ),
+                                      ),
+                                    ),
+                                  ]),
+                                ],
                               ),
-                            ),
-                            Positioned(
-                              top: 36,
-                              left: 90,
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(color: AppColors.cercaPrimary, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                              ),
-                            ),
-                            Positioned(
-                              top: 78,
-                              left: 250,
-                              child: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(color: AppColors.cercaMapPin, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)),
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                     const SizedBox(height: 18),

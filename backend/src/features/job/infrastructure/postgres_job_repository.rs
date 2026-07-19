@@ -243,4 +243,45 @@ impl JobRepository for PostgresJobRepository {
         }
         Ok(jobs)
     }
+
+    async fn find_assigned_jobs(&self, technician_profile_id: i32) -> Result<Vec<JobRequest>, JobError> {
+        let rows = sqlx::query_as::<_, JobRequestRow>(
+            "SELECT id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, \
+             fee_type, fee_paid, payment_method, payment_done, rating, title, address, comment, created_at \
+             FROM job_requests WHERE technician_profile_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(technician_profile_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| JobError::Repository(e.to_string()))?;
+
+        let mut jobs = Vec::new();
+        for r in rows {
+            let job = JobRequest::try_from(r).map_err(|err| JobError::Repository(err))?;
+            jobs.push(job);
+        }
+        Ok(jobs)
+    }
+
+    async fn find_open_bidding_jobs(&self, excluding_technician_profile_id: i32) -> Result<Vec<JobRequest>, JobError> {
+        let rows = sqlx::query_as::<_, JobRequestRow>(
+            "SELECT id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, \
+             fee_type, fee_paid, payment_method, payment_done, rating, title, address, comment, created_at \
+             FROM job_requests \
+             WHERE job_kind = 'bidding' AND status = 'pending' AND technician_profile_id IS NULL \
+             AND id NOT IN (SELECT job_request_id FROM job_offers WHERE technician_profile_id = $1) \
+             ORDER BY created_at DESC",
+        )
+        .bind(excluding_technician_profile_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| JobError::Repository(e.to_string()))?;
+
+        let mut jobs = Vec::new();
+        for r in rows {
+            let job = JobRequest::try_from(r).map_err(|err| JobError::Repository(err))?;
+            jobs.push(job);
+        }
+        Ok(jobs)
+    }
 }

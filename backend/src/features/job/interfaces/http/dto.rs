@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::features::job::application::TechnicianJobsOutput;
 use crate::features::job::domain::{JobOffer, JobRequest};
 
 #[derive(Serialize)]
@@ -104,4 +105,19 @@ pub struct SubmitOfferRequest {
 #[derive(Deserialize)]
 pub struct ChooseOfferRequest {
     pub offer_id: i32,
+}
+
+#[derive(Serialize)]
+pub struct TechnicianJobsResponse {
+    pub assigned: Vec<JobRequestResponse>,
+    pub open_for_bid: Vec<JobRequestResponse>,
+}
+
+impl From<TechnicianJobsOutput> for TechnicianJobsResponse {
+    fn from(o: TechnicianJobsOutput) -> Self {
+        Self {
+            assigned: o.assigned.into_iter().map(Into::into).collect(),
+            open_for_bid: o.open_for_bid.into_iter().map(Into::into).collect(),
+        }
+    }
 }
