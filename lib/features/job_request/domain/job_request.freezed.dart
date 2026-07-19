@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$JobRequest {
 
- String get id; String get clientId; int? get technicianProfileId; int? get techTeamId; String get jobKind; String get status; int get timelineStep; String get feeType; int get feeAmount; bool get feePaid; String? get paymentMethod; bool get paymentDone; bool get mobilityIncluded; int? get rating; String? get title; String? get address; String? get comment;
+ String get id; String get clientId; int? get technicianProfileId; int? get techTeamId; String get jobKind; String get status; int get timelineStep; String get feeType; int get feeAmount; bool get feePaid; String? get paymentMethod; bool get paymentDone; bool get mobilityIncluded; int? get agreedPrice; int? get rating; String? get title; String? get address; String? get comment; String get createdAt;
 /// Create a copy of JobRequest
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $JobRequestCopyWith<JobRequest> get copyWith => _$JobRequestCopyWithImpl<JobRequ
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is JobRequest&&(identical(other.id, id) || other.id == id)&&(identical(other.clientId, clientId) || other.clientId == clientId)&&(identical(other.technicianProfileId, technicianProfileId) || other.technicianProfileId == technicianProfileId)&&(identical(other.techTeamId, techTeamId) || other.techTeamId == techTeamId)&&(identical(other.jobKind, jobKind) || other.jobKind == jobKind)&&(identical(other.status, status) || other.status == status)&&(identical(other.timelineStep, timelineStep) || other.timelineStep == timelineStep)&&(identical(other.feeType, feeType) || other.feeType == feeType)&&(identical(other.feeAmount, feeAmount) || other.feeAmount == feeAmount)&&(identical(other.feePaid, feePaid) || other.feePaid == feePaid)&&(identical(other.paymentMethod, paymentMethod) || other.paymentMethod == paymentMethod)&&(identical(other.paymentDone, paymentDone) || other.paymentDone == paymentDone)&&(identical(other.mobilityIncluded, mobilityIncluded) || other.mobilityIncluded == mobilityIncluded)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.title, title) || other.title == title)&&(identical(other.address, address) || other.address == address)&&(identical(other.comment, comment) || other.comment == comment));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is JobRequest&&(identical(other.id, id) || other.id == id)&&(identical(other.clientId, clientId) || other.clientId == clientId)&&(identical(other.technicianProfileId, technicianProfileId) || other.technicianProfileId == technicianProfileId)&&(identical(other.techTeamId, techTeamId) || other.techTeamId == techTeamId)&&(identical(other.jobKind, jobKind) || other.jobKind == jobKind)&&(identical(other.status, status) || other.status == status)&&(identical(other.timelineStep, timelineStep) || other.timelineStep == timelineStep)&&(identical(other.feeType, feeType) || other.feeType == feeType)&&(identical(other.feeAmount, feeAmount) || other.feeAmount == feeAmount)&&(identical(other.feePaid, feePaid) || other.feePaid == feePaid)&&(identical(other.paymentMethod, paymentMethod) || other.paymentMethod == paymentMethod)&&(identical(other.paymentDone, paymentDone) || other.paymentDone == paymentDone)&&(identical(other.mobilityIncluded, mobilityIncluded) || other.mobilityIncluded == mobilityIncluded)&&(identical(other.agreedPrice, agreedPrice) || other.agreedPrice == agreedPrice)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.title, title) || other.title == title)&&(identical(other.address, address) || other.address == address)&&(identical(other.comment, comment) || other.comment == comment)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,clientId,technicianProfileId,techTeamId,jobKind,status,timelineStep,feeType,feeAmount,feePaid,paymentMethod,paymentDone,mobilityIncluded,rating,title,address,comment);
+int get hashCode => Object.hashAll([runtimeType,id,clientId,technicianProfileId,techTeamId,jobKind,status,timelineStep,feeType,feeAmount,feePaid,paymentMethod,paymentDone,mobilityIncluded,agreedPrice,rating,title,address,comment,createdAt]);
 
 @override
 String toString() {
-  return 'JobRequest(id: $id, clientId: $clientId, technicianProfileId: $technicianProfileId, techTeamId: $techTeamId, jobKind: $jobKind, status: $status, timelineStep: $timelineStep, feeType: $feeType, feeAmount: $feeAmount, feePaid: $feePaid, paymentMethod: $paymentMethod, paymentDone: $paymentDone, mobilityIncluded: $mobilityIncluded, rating: $rating, title: $title, address: $address, comment: $comment)';
+  return 'JobRequest(id: $id, clientId: $clientId, technicianProfileId: $technicianProfileId, techTeamId: $techTeamId, jobKind: $jobKind, status: $status, timelineStep: $timelineStep, feeType: $feeType, feeAmount: $feeAmount, feePaid: $feePaid, paymentMethod: $paymentMethod, paymentDone: $paymentDone, mobilityIncluded: $mobilityIncluded, agreedPrice: $agreedPrice, rating: $rating, title: $title, address: $address, comment: $comment, createdAt: $createdAt)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $JobRequestCopyWith<$Res>  {
   factory $JobRequestCopyWith(JobRequest value, $Res Function(JobRequest) _then) = _$JobRequestCopyWithImpl;
 @useResult
 $Res call({
- String id, String clientId, int? technicianProfileId, int? techTeamId, String jobKind, String status, int timelineStep, String feeType, int feeAmount, bool feePaid, String? paymentMethod, bool paymentDone, bool mobilityIncluded, int? rating, String? title, String? address, String? comment
+ String id, String clientId, int? technicianProfileId, int? techTeamId, String jobKind, String status, int timelineStep, String feeType, int feeAmount, bool feePaid, String? paymentMethod, bool paymentDone, bool mobilityIncluded, int? agreedPrice, int? rating, String? title, String? address, String? comment, String createdAt
 });
 
 
@@ -65,7 +65,7 @@ class _$JobRequestCopyWithImpl<$Res>
 
 /// Create a copy of JobRequest
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? clientId = null,Object? technicianProfileId = freezed,Object? techTeamId = freezed,Object? jobKind = null,Object? status = null,Object? timelineStep = null,Object? feeType = null,Object? feeAmount = null,Object? feePaid = null,Object? paymentMethod = freezed,Object? paymentDone = null,Object? mobilityIncluded = null,Object? rating = freezed,Object? title = freezed,Object? address = freezed,Object? comment = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? clientId = null,Object? technicianProfileId = freezed,Object? techTeamId = freezed,Object? jobKind = null,Object? status = null,Object? timelineStep = null,Object? feeType = null,Object? feeAmount = null,Object? feePaid = null,Object? paymentMethod = freezed,Object? paymentDone = null,Object? mobilityIncluded = null,Object? agreedPrice = freezed,Object? rating = freezed,Object? title = freezed,Object? address = freezed,Object? comment = freezed,Object? createdAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,clientId: null == clientId ? _self.clientId : clientId // ignore: cast_nullable_to_non_nullable
@@ -80,11 +80,13 @@ as int,feePaid: null == feePaid ? _self.feePaid : feePaid // ignore: cast_nullab
 as bool,paymentMethod: freezed == paymentMethod ? _self.paymentMethod : paymentMethod // ignore: cast_nullable_to_non_nullable
 as String?,paymentDone: null == paymentDone ? _self.paymentDone : paymentDone // ignore: cast_nullable_to_non_nullable
 as bool,mobilityIncluded: null == mobilityIncluded ? _self.mobilityIncluded : mobilityIncluded // ignore: cast_nullable_to_non_nullable
-as bool,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
+as bool,agreedPrice: freezed == agreedPrice ? _self.agreedPrice : agreedPrice // ignore: cast_nullable_to_non_nullable
+as int?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
 as int?,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String?,address: freezed == address ? _self.address : address // ignore: cast_nullable_to_non_nullable
 as String?,comment: freezed == comment ? _self.comment : comment // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 
@@ -169,10 +171,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? rating,  String? title,  String? address,  String? comment)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _JobRequest() when $default != null:
-return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.rating,_that.title,_that.address,_that.comment);case _:
+return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.agreedPrice,_that.rating,_that.title,_that.address,_that.comment,_that.createdAt);case _:
   return orElse();
 
 }
@@ -190,10 +192,10 @@ return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeam
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? rating,  String? title,  String? address,  String? comment)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _JobRequest():
-return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.rating,_that.title,_that.address,_that.comment);case _:
+return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.agreedPrice,_that.rating,_that.title,_that.address,_that.comment,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -210,10 +212,10 @@ return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeam
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? rating,  String? title,  String? address,  String? comment)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _JobRequest() when $default != null:
-return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.rating,_that.title,_that.address,_that.comment);case _:
+return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.agreedPrice,_that.rating,_that.title,_that.address,_that.comment,_that.createdAt);case _:
   return null;
 
 }
@@ -225,7 +227,7 @@ return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeam
 @JsonSerializable()
 
 class _JobRequest implements JobRequest {
-  const _JobRequest({required this.id, required this.clientId, this.technicianProfileId, this.techTeamId, required this.jobKind, required this.status, required this.timelineStep, required this.feeType, required this.feeAmount, required this.feePaid, this.paymentMethod, required this.paymentDone, required this.mobilityIncluded, this.rating, this.title, this.address, this.comment});
+  const _JobRequest({required this.id, required this.clientId, this.technicianProfileId, this.techTeamId, required this.jobKind, required this.status, required this.timelineStep, required this.feeType, required this.feeAmount, required this.feePaid, this.paymentMethod, required this.paymentDone, required this.mobilityIncluded, this.agreedPrice, this.rating, this.title, this.address, this.comment, required this.createdAt});
   factory _JobRequest.fromJson(Map<String, dynamic> json) => _$JobRequestFromJson(json);
 
 @override final  String id;
@@ -241,10 +243,12 @@ class _JobRequest implements JobRequest {
 @override final  String? paymentMethod;
 @override final  bool paymentDone;
 @override final  bool mobilityIncluded;
+@override final  int? agreedPrice;
 @override final  int? rating;
 @override final  String? title;
 @override final  String? address;
 @override final  String? comment;
+@override final  String createdAt;
 
 /// Create a copy of JobRequest
 /// with the given fields replaced by the non-null parameter values.
@@ -259,16 +263,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _JobRequest&&(identical(other.id, id) || other.id == id)&&(identical(other.clientId, clientId) || other.clientId == clientId)&&(identical(other.technicianProfileId, technicianProfileId) || other.technicianProfileId == technicianProfileId)&&(identical(other.techTeamId, techTeamId) || other.techTeamId == techTeamId)&&(identical(other.jobKind, jobKind) || other.jobKind == jobKind)&&(identical(other.status, status) || other.status == status)&&(identical(other.timelineStep, timelineStep) || other.timelineStep == timelineStep)&&(identical(other.feeType, feeType) || other.feeType == feeType)&&(identical(other.feeAmount, feeAmount) || other.feeAmount == feeAmount)&&(identical(other.feePaid, feePaid) || other.feePaid == feePaid)&&(identical(other.paymentMethod, paymentMethod) || other.paymentMethod == paymentMethod)&&(identical(other.paymentDone, paymentDone) || other.paymentDone == paymentDone)&&(identical(other.mobilityIncluded, mobilityIncluded) || other.mobilityIncluded == mobilityIncluded)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.title, title) || other.title == title)&&(identical(other.address, address) || other.address == address)&&(identical(other.comment, comment) || other.comment == comment));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _JobRequest&&(identical(other.id, id) || other.id == id)&&(identical(other.clientId, clientId) || other.clientId == clientId)&&(identical(other.technicianProfileId, technicianProfileId) || other.technicianProfileId == technicianProfileId)&&(identical(other.techTeamId, techTeamId) || other.techTeamId == techTeamId)&&(identical(other.jobKind, jobKind) || other.jobKind == jobKind)&&(identical(other.status, status) || other.status == status)&&(identical(other.timelineStep, timelineStep) || other.timelineStep == timelineStep)&&(identical(other.feeType, feeType) || other.feeType == feeType)&&(identical(other.feeAmount, feeAmount) || other.feeAmount == feeAmount)&&(identical(other.feePaid, feePaid) || other.feePaid == feePaid)&&(identical(other.paymentMethod, paymentMethod) || other.paymentMethod == paymentMethod)&&(identical(other.paymentDone, paymentDone) || other.paymentDone == paymentDone)&&(identical(other.mobilityIncluded, mobilityIncluded) || other.mobilityIncluded == mobilityIncluded)&&(identical(other.agreedPrice, agreedPrice) || other.agreedPrice == agreedPrice)&&(identical(other.rating, rating) || other.rating == rating)&&(identical(other.title, title) || other.title == title)&&(identical(other.address, address) || other.address == address)&&(identical(other.comment, comment) || other.comment == comment)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,clientId,technicianProfileId,techTeamId,jobKind,status,timelineStep,feeType,feeAmount,feePaid,paymentMethod,paymentDone,mobilityIncluded,rating,title,address,comment);
+int get hashCode => Object.hashAll([runtimeType,id,clientId,technicianProfileId,techTeamId,jobKind,status,timelineStep,feeType,feeAmount,feePaid,paymentMethod,paymentDone,mobilityIncluded,agreedPrice,rating,title,address,comment,createdAt]);
 
 @override
 String toString() {
-  return 'JobRequest(id: $id, clientId: $clientId, technicianProfileId: $technicianProfileId, techTeamId: $techTeamId, jobKind: $jobKind, status: $status, timelineStep: $timelineStep, feeType: $feeType, feeAmount: $feeAmount, feePaid: $feePaid, paymentMethod: $paymentMethod, paymentDone: $paymentDone, mobilityIncluded: $mobilityIncluded, rating: $rating, title: $title, address: $address, comment: $comment)';
+  return 'JobRequest(id: $id, clientId: $clientId, technicianProfileId: $technicianProfileId, techTeamId: $techTeamId, jobKind: $jobKind, status: $status, timelineStep: $timelineStep, feeType: $feeType, feeAmount: $feeAmount, feePaid: $feePaid, paymentMethod: $paymentMethod, paymentDone: $paymentDone, mobilityIncluded: $mobilityIncluded, agreedPrice: $agreedPrice, rating: $rating, title: $title, address: $address, comment: $comment, createdAt: $createdAt)';
 }
 
 
@@ -279,7 +283,7 @@ abstract mixin class _$JobRequestCopyWith<$Res> implements $JobRequestCopyWith<$
   factory _$JobRequestCopyWith(_JobRequest value, $Res Function(_JobRequest) _then) = __$JobRequestCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String clientId, int? technicianProfileId, int? techTeamId, String jobKind, String status, int timelineStep, String feeType, int feeAmount, bool feePaid, String? paymentMethod, bool paymentDone, bool mobilityIncluded, int? rating, String? title, String? address, String? comment
+ String id, String clientId, int? technicianProfileId, int? techTeamId, String jobKind, String status, int timelineStep, String feeType, int feeAmount, bool feePaid, String? paymentMethod, bool paymentDone, bool mobilityIncluded, int? agreedPrice, int? rating, String? title, String? address, String? comment, String createdAt
 });
 
 
@@ -296,7 +300,7 @@ class __$JobRequestCopyWithImpl<$Res>
 
 /// Create a copy of JobRequest
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? clientId = null,Object? technicianProfileId = freezed,Object? techTeamId = freezed,Object? jobKind = null,Object? status = null,Object? timelineStep = null,Object? feeType = null,Object? feeAmount = null,Object? feePaid = null,Object? paymentMethod = freezed,Object? paymentDone = null,Object? mobilityIncluded = null,Object? rating = freezed,Object? title = freezed,Object? address = freezed,Object? comment = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? clientId = null,Object? technicianProfileId = freezed,Object? techTeamId = freezed,Object? jobKind = null,Object? status = null,Object? timelineStep = null,Object? feeType = null,Object? feeAmount = null,Object? feePaid = null,Object? paymentMethod = freezed,Object? paymentDone = null,Object? mobilityIncluded = null,Object? agreedPrice = freezed,Object? rating = freezed,Object? title = freezed,Object? address = freezed,Object? comment = freezed,Object? createdAt = null,}) {
   return _then(_JobRequest(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,clientId: null == clientId ? _self.clientId : clientId // ignore: cast_nullable_to_non_nullable
@@ -311,11 +315,13 @@ as int,feePaid: null == feePaid ? _self.feePaid : feePaid // ignore: cast_nullab
 as bool,paymentMethod: freezed == paymentMethod ? _self.paymentMethod : paymentMethod // ignore: cast_nullable_to_non_nullable
 as String?,paymentDone: null == paymentDone ? _self.paymentDone : paymentDone // ignore: cast_nullable_to_non_nullable
 as bool,mobilityIncluded: null == mobilityIncluded ? _self.mobilityIncluded : mobilityIncluded // ignore: cast_nullable_to_non_nullable
-as bool,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
+as bool,agreedPrice: freezed == agreedPrice ? _self.agreedPrice : agreedPrice // ignore: cast_nullable_to_non_nullable
+as int?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
 as int?,title: freezed == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String?,address: freezed == address ? _self.address : address // ignore: cast_nullable_to_non_nullable
 as String?,comment: freezed == comment ? _self.comment : comment // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

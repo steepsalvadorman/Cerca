@@ -91,7 +91,7 @@ class _AppFeeScreenState extends ConsumerState<AppFeeScreen> {
                             style: CercaText.sora(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary),
                           ),
                           const SizedBox(height: 6),
-                          Text(formatClp(feeAmount), style: CercaText.lora(fontSize: 32)),
+                          Text(formatSoles(feeAmount), style: CercaText.lora(fontSize: 32)),
                         ],
                       ),
                     ),
@@ -133,7 +133,7 @@ class _AppFeeScreenState extends ConsumerState<AppFeeScreen> {
               ),
             ),
             PrimaryActionButton(
-              label: _paying ? 'Procesando…' : 'Pagar ${formatClp(feeAmount)} y contactar',
+              label: _paying ? 'Procesando…' : 'Pagar ${formatSoles(feeAmount)} y contactar',
               enabled: !_paying,
               onTap: () => _pay(_paymentLabel(state.payment)),
             ),

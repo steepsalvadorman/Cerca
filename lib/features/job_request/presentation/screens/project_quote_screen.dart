@@ -136,9 +136,9 @@ class _ProjectQuoteScreenState extends ConsumerState<ProjectQuoteScreen> {
                       ),
                       child: Column(
                         children: [
-                          _AmountRow('Mano de obra', formatClp(team.laborCost)),
+                          _AmountRow('Mano de obra', formatSoles(team.laborCost)),
                           const SizedBox(height: 8),
-                          _AmountRow('Materiales (referencial)', formatClp(team.materialsCost)),
+                          _AmountRow('Materiales (referencial)', formatSoles(team.materialsCost)),
                           Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             margin: const EdgeInsets.only(top: 2),
@@ -154,7 +154,7 @@ class _ProjectQuoteScreenState extends ConsumerState<ProjectQuoteScreen> {
                                       Text('Movilización del equipo', style: CercaText.sora(fontSize: 12.5, fontWeight: FontWeight.w600)),
                                       const SizedBox(height: 1),
                                       Text(
-                                        'Traslado de personal y herramientas · ${formatClp(team.mobilityCost)}',
+                                        'Traslado de personal y herramientas · ${formatSoles(team.mobilityCost)}',
                                         style: CercaText.sora(fontSize: 10.5, color: AppColors.cercaTextSecondary),
                                       ),
                                     ],
@@ -179,7 +179,7 @@ class _ProjectQuoteScreenState extends ConsumerState<ProjectQuoteScreen> {
                               children: [
                                 Text('Total estimado', style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w700)),
                                 Text(
-                                  formatClp(projectTotal),
+                                  formatSoles(projectTotal),
                                   style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary),
                                 ),
                               ],

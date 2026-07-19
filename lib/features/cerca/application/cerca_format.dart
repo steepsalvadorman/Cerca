@@ -1,11 +1,26 @@
-/// Formats an integer amount as Chilean pesos (e.g. 32000 -> "$32.000"),
-/// matching the prototype's `n.toLocaleString('es-CL')`.
-String formatClp(int value) {
-  final digits = value.toString();
+/// Formats an integer amount of soles as Peruvian currency (e.g. 1234 ->
+/// "S/ 1,234.00"), matching the `es-PE` convention (comma thousands
+/// separator, period decimal separator — the opposite of `es-CL`, which
+/// this app originally targeted before the market moved to Peru).
+String formatSoles(int value) {
+  final digits = value.abs().toString();
   final buffer = StringBuffer();
   for (var i = 0; i < digits.length; i++) {
-    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
     buffer.write(digits[i]);
   }
-  return '\$$buffer';
+  final sign = value < 0 ? '-' : '';
+  return 'S/ $sign$buffer.00';
+}
+
+const _shortMonths = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+
+/// Formats an ISO-8601 timestamp as a short local date (e.g. "2 jul"),
+/// matching the style used across the client's request history.
+String formatShortDate(String isoTimestamp) {
+  final date = DateTime.parse(isoTimestamp).toLocal();
+  return '${date.day} ${_shortMonths[date.month - 1]}';
 }

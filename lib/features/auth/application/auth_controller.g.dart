@@ -84,7 +84,7 @@ final class AuthControllerProvider
   AuthController create() => AuthController();
 }
 
-String _$authControllerHash() => r'2834d355fc7254bab708281c2ae6830aaa7160de';
+String _$authControllerHash() => r'2877102e87f8e4f5549ef2fa1d03e71fc5e64edf';
 
 /// Session state for the whole app: `null` means signed out. Restores
 /// the session from the stored JWT on first read (app startup), and

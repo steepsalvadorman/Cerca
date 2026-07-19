@@ -19,7 +19,15 @@ class AuthController extends _$AuthController {
 
   Future<AuthSession?> _restoreSession() async {
     final storage = ref.read(tokenStorageProvider);
-    final token = await storage.read();
+    final String? token;
+    try {
+      token = await storage.read();
+    } catch (_) {
+      // Secure storage can fail to even open (corrupted keychain/keystore,
+      // no platform channel in a test host, etc). Treat that the same as
+      // "no session" instead of leaving the app stuck restoring forever.
+      return null;
+    }
     if (token == null) return null;
 
     try {
@@ -60,7 +68,12 @@ class AuthController extends _$AuthController {
   }
 
   Future<void> logout() async {
-    await ref.read(tokenStorageProvider).clear();
+    try {
+      await ref.read(tokenStorageProvider).clear();
+    } catch (_) {
+      // Even if clearing the stored token fails, the in-memory session
+      // must still drop — the user tapped "log out" and expects it to work.
+    }
     state = const AsyncData(null);
   }
 }

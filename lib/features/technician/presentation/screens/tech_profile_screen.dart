@@ -226,6 +226,19 @@ class _TechProfileScreenState extends ConsumerState<TechProfileScreen> {
                         ),
                       ),
                     ],
+                    const SizedBox(height: 10),
+                    Center(
+                      child: InkWell(
+                        onTap: () async {
+                          await ref.read(authControllerProvider.notifier).logout();
+                          if (context.mounted) context.go(RoutePaths.login);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text('Cerrar sesión', style: CercaText.sora(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.cercaTextMuted)),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

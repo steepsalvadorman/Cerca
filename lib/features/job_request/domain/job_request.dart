@@ -25,6 +25,7 @@ abstract class JobRequest with _$JobRequest {
     String? title,
     String? address,
     String? comment,
+    required String createdAt,
   }) = _JobRequest;
 
   factory JobRequest.fromJson(Map<String, dynamic> json) => _$JobRequestFromJson(json);

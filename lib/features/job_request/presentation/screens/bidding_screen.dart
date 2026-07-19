@@ -218,7 +218,7 @@ class _OfferCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(formatClp(offer.price), style: CercaText.sora(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(formatSoles(offer.price), style: CercaText.sora(fontSize: 16, fontWeight: FontWeight.w700)),
                   Text(offer.eta, style: CercaText.sora(fontSize: 10.5, color: AppColors.cercaTextSecondary)),
                 ],
               ),

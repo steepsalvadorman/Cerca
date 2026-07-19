@@ -6,12 +6,16 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/application/auth_controller.dart';
-import '../../../cerca/application/cerca_seed_data.dart';
-import '../../../cerca/domain/entities/client_history_entry.dart';
+import '../../../cerca/application/cerca_format.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../../client/application/client_account_controller.dart';
+import '../../../job_request/application/client_history_controller.dart';
+import '../../../job_request/domain/job_request.dart';
+import '../../../job_request/presentation/agreed_price_label.dart';
+import '../../../technician/application/providers_controller.dart';
+import '../../../technician/data/technician_repository.dart';
 
 class ClientAccountScreen extends ConsumerWidget {
   const ClientAccountScreen({super.key});
@@ -83,6 +87,8 @@ class ClientAccountScreen extends ConsumerWidget {
     final userName = ref.watch(authControllerProvider).value?.user.name.trim() ?? '';
     final accountAsync = ref.watch(clientAccountControllerProvider);
     final account = accountAsync.value;
+    final history = ref.watch(clientHistoryProvider).value?.where((j) => j.isCompleted || j.status == 'cancelled').toList() ?? const [];
+    final providersPage = ref.watch(providersControllerProvider).value;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -153,7 +159,10 @@ class ClientAccountScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     Text('Historial de solicitudes', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    for (final entry in CercaSeedData.clientHistory) _HistoryRow(entry: entry),
+                    if (history.isEmpty)
+                      Text('Aún no tienes solicitudes anteriores.', style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary))
+                    else
+                      for (final job in history) _HistoryRow(job: job, providersPage: providersPage),
                     const SizedBox(height: 10),
                     Center(
                       child: InkWell(
@@ -213,12 +222,28 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.entry});
-  final ClientHistoryEntry entry;
+  const _HistoryRow({required this.job, required this.providersPage});
+  final JobRequest job;
+  final ProvidersPage? providersPage;
 
   @override
   Widget build(BuildContext context) {
-    final completed = entry.status == ClientHistoryStatus.completed;
+    final completed = job.isCompleted;
+    String techName = 'Técnico';
+    if (providersPage != null) {
+      if (job.technicianProfileId != null) {
+        for (final t in providersPage!.technicians) {
+          if (t.id == job.technicianProfileId) techName = t.name;
+        }
+      } else if (job.techTeamId != null) {
+        for (final t in providersPage!.teams) {
+          if (t.id == job.techTeamId) techName = t.name;
+        }
+      }
+    }
+    final category = job.title?.isNotEmpty == true ? job.title! : job.jobKind;
+    final price = agreedPriceLabel(job, providersPage);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -233,7 +258,7 @@ class _HistoryRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(entry.category, style: CercaText.sora(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(category, style: CercaText.sora(fontSize: 13, fontWeight: FontWeight.w600)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                 decoration: BoxDecoration(
@@ -248,7 +273,7 @@ class _HistoryRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text('${entry.tech} · ${entry.date} · ${entry.price}', style: CercaText.sora(fontSize: 11.5, color: AppColors.cercaTextSecondary)),
+          Text('$techName · ${formatShortDate(job.createdAt)} · $price', style: CercaText.sora(fontSize: 11.5, color: AppColors.cercaTextSecondary)),
         ],
       ),
     );

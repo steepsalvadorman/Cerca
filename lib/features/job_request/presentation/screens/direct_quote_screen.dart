@@ -153,7 +153,7 @@ class _DirectQuoteScreenState extends ConsumerState<DirectQuoteScreen> {
                             ],
                           ),
                           const SizedBox(height: 10),
-                          Text('\$32.000', style: CercaText.lora(fontSize: 26, color: AppColors.cercaPrimary)),
+                          Text(provider.priceLabel, style: CercaText.lora(fontSize: 26, color: AppColors.cercaPrimary)),
                           const SizedBox(height: 6),
                           Text(
                             'Puede llegar hoy a las 17:00 · trae materiales básicos',
@@ -214,7 +214,7 @@ class _DirectQuoteScreenState extends ConsumerState<DirectQuoteScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
               child: Text(
-                'Al aceptar, Cerca cobra una tarifa de contacto. El pago del trabajo (\$32.000) es directo con el técnico.',
+                'Al aceptar, Cerca cobra una tarifa de contacto. El pago del trabajo se acuerda y se paga directo con el técnico.',
                 textAlign: TextAlign.center,
                 style: CercaText.sora(fontSize: 11, color: AppColors.cercaTextMuted, height: 1.4),
               ),

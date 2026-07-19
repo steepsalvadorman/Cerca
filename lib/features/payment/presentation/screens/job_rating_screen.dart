@@ -88,23 +88,11 @@ class _JobRatingScreenState extends ConsumerState<JobRatingScreen> {
                         border: Border.all(color: AppColors.cercaBorder),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Column(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _CostRow('Servicio', '\$28.000'),
-                          const SizedBox(height: 10),
-                          _CostRow('Materiales', '\$4.000'),
-                          Container(
-                            padding: const EdgeInsets.only(top: 10),
-                            margin: const EdgeInsets.only(top: 0),
-                            decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.cercaBorder))),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Total pactado con el técnico', style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w700)),
-                                Text('\$32.000', style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary)),
-                              ],
-                            ),
-                          ),
+                          Text('Total pactado con el técnico', style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w700)),
+                          Text(agreedLabel, style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary)),
                         ],
                       ),
                     ),
@@ -199,23 +187,6 @@ class _JobRatingScreenState extends ConsumerState<JobRatingScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _CostRow extends StatelessWidget {
-  const _CostRow(this.label, this.value);
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary)),
-        Text(value, style: CercaText.sora(fontSize: 12.5)),
-      ],
     );
   }
 }

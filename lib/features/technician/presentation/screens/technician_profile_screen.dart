@@ -188,7 +188,7 @@ class TechnicianProfileScreen extends ConsumerWidget {
                               Text('Tarifa referencial', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
                               Text(
-                                '${provider.priceLabel} · visita técnica desde \$6.000',
+                                '${provider.priceLabel} · visita técnica desde S/ 20',
                                 style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary),
                               ),
                               const SizedBox(height: 16),

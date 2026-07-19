@@ -20,10 +20,12 @@ _JobRequest _$JobRequestFromJson(Map<String, dynamic> json) => _JobRequest(
   paymentMethod: json['payment_method'] as String?,
   paymentDone: json['payment_done'] as bool,
   mobilityIncluded: json['mobility_included'] as bool,
+  agreedPrice: (json['agreed_price'] as num?)?.toInt(),
   rating: (json['rating'] as num?)?.toInt(),
   title: json['title'] as String?,
   address: json['address'] as String?,
   comment: json['comment'] as String?,
+  createdAt: json['created_at'] as String,
 );
 
 Map<String, dynamic> _$JobRequestToJson(_JobRequest instance) =>
@@ -41,8 +43,10 @@ Map<String, dynamic> _$JobRequestToJson(_JobRequest instance) =>
       'payment_method': instance.paymentMethod,
       'payment_done': instance.paymentDone,
       'mobility_included': instance.mobilityIncluded,
+      'agreed_price': instance.agreedPrice,
       'rating': instance.rating,
       'title': instance.title,
       'address': instance.address,
       'comment': instance.comment,
+      'created_at': instance.createdAt,
     };

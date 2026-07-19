@@ -11,12 +11,12 @@ String agreedPriceLabel(JobRequest? job, ProvidersPage? providersPage) {
   if (job == null || providersPage == null) return 'Por confirmar';
   switch (job.jobKind) {
     case 'bidding':
-      return job.agreedPrice != null ? formatClp(job.agreedPrice!) : 'Por confirmar';
+      return job.agreedPrice != null ? formatSoles(job.agreedPrice!) : 'Por confirmar';
     case 'project':
       for (final t in providersPage.teams) {
         if (t.id == job.techTeamId) {
           final mobility = job.mobilityIncluded ? t.mobilityCost : 0;
-          return formatClp(t.laborCost + t.materialsCost + mobility);
+          return formatSoles(t.laborCost + t.materialsCost + mobility);
         }
       }
       return 'Por confirmar';
