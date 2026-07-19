@@ -1,20 +1,14 @@
-mod config;
-mod db;
-mod features;
-mod routes;
-mod shared;
-mod state;
-
 use std::sync::Arc;
 
-use config::AppConfig;
-use features::auth::infrastructure::{Argon2PasswordHasher, JwtTokenService, PostgresUserRepository};
-use features::technician::infrastructure::PostgresTechnicianRepository;
-use features::client::infrastructure::PostgresClientRepository;
-use features::job::infrastructure::PostgresJobRepository;
-use features::chat::infrastructure::PostgresChatRepository;
-use features::tracking::infrastructure::PostgresTrackingRepository;
-use state::AppState;
+use backend::config::AppConfig;
+use backend::features::auth::infrastructure::{Argon2PasswordHasher, JwtTokenService, PostgresUserRepository};
+use backend::features::technician::infrastructure::PostgresTechnicianRepository;
+use backend::features::client::infrastructure::PostgresClientRepository;
+use backend::features::job::infrastructure::PostgresJobRepository;
+use backend::features::chat::infrastructure::PostgresChatRepository;
+use backend::features::tracking::infrastructure::PostgresTrackingRepository;
+use backend::state::AppState;
+use backend::{db, routes};
 
 #[tokio::main]
 async fn main() {

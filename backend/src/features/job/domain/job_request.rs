@@ -34,15 +34,19 @@ impl JobStatus {
     }
 }
 
-/// The app-fee schedule (CLP), keyed by `fee_type`. The single source of
+/// The app-fee schedule (soles), keyed by `fee_type`. The single source of
 /// truth for what a client is actually charged — the frontend used to keep
 /// its own copy of these amounts purely for display, with nothing tying it
 /// to what the backend would accept.
+///
+/// PLACEHOLDER PRICING: these are a rough conversion from the original
+/// Chilean-peso prototype (2990/4990 CLP), not a real product-pricing
+/// decision for the Peru market — confirm the actual amounts before launch.
 fn fee_amount_for(fee_type: &str) -> i32 {
     match fee_type {
-        "direct" => 2990,
-        "bidding" => 4990,
-        "project" => 4990,
+        "direct" => 12,
+        "bidding" => 20,
+        "project" => 20,
         _ => 0,
     }
 }

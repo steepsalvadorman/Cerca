@@ -24,6 +24,7 @@ pub struct JobRequestResponse {
     pub title: Option<String>,
     pub address: Option<String>,
     pub comment: Option<String>,
+    pub created_at: String,
 }
 
 impl From<JobRequest> for JobRequestResponse {
@@ -47,6 +48,7 @@ impl From<JobRequest> for JobRequestResponse {
             title: j.title,
             address: j.address,
             comment: j.comment,
+            created_at: j.created_at.to_rfc3339(),
         }
     }
 }
