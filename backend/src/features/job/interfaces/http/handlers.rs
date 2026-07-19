@@ -32,6 +32,7 @@ pub async fn create_job(
             job_kind: body.job_kind,
             title: body.title,
             address: body.address,
+            mobility_included: body.mobility_included,
         })
         .await?;
 

@@ -18,9 +18,12 @@ struct JobRequestRow {
     status: String,
     timeline_step: i32,
     fee_type: String,
+    fee_amount: i32,
     fee_paid: bool,
     payment_method: Option<String>,
     payment_done: bool,
+    mobility_included: bool,
+    agreed_price: Option<i32>,
     rating: Option<i32>,
     title: Option<String>,
     address: Option<String>,
@@ -42,9 +45,12 @@ impl TryFrom<JobRequestRow> for JobRequest {
             status,
             timeline_step: row.timeline_step,
             fee_type: row.fee_type,
+            fee_amount: row.fee_amount,
             fee_paid: row.fee_paid,
             payment_method: row.payment_method,
             payment_done: row.payment_done,
+            mobility_included: row.mobility_included,
+            agreed_price: row.agreed_price,
             rating: row.rating,
             title: row.title,
             address: row.address,
@@ -98,8 +104,8 @@ impl PostgresJobRepository {
 impl JobRepository for PostgresJobRepository {
     async fn create_job_request(&self, job: &JobRequest) -> Result<(), JobError> {
         sqlx::query(
-            "INSERT INTO job_requests (id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, fee_type, fee_paid, payment_method, payment_done, rating, title, address, comment, created_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
+            "INSERT INTO job_requests (id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, fee_type, fee_amount, fee_paid, payment_method, payment_done, mobility_included, agreed_price, rating, title, address, comment, created_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)",
         )
         .bind(job.id)
         .bind(job.client_id)
@@ -109,9 +115,12 @@ impl JobRepository for PostgresJobRepository {
         .bind(job.status.as_str())
         .bind(job.timeline_step)
         .bind(&job.fee_type)
+        .bind(job.fee_amount)
         .bind(job.fee_paid)
         .bind(&job.payment_method)
         .bind(job.payment_done)
+        .bind(job.mobility_included)
+        .bind(job.agreed_price)
         .bind(job.rating)
         .bind(&job.title)
         .bind(&job.address)
@@ -127,7 +136,7 @@ impl JobRepository for PostgresJobRepository {
     async fn find_job_request_by_id(&self, id: Uuid) -> Result<Option<JobRequest>, JobError> {
         let row = sqlx::query_as::<_, JobRequestRow>(
             "SELECT id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, \
-             fee_type, fee_paid, payment_method, payment_done, rating, title, address, comment, created_at \
+             fee_type, fee_amount, fee_paid, payment_method, payment_done, mobility_included, agreed_price, rating, title, address, comment, created_at \
              FROM job_requests WHERE id = $1",
         )
         .bind(id)
@@ -154,8 +163,9 @@ impl JobRepository for PostgresJobRepository {
              fee_paid = $6, \
              payment_method = $7, \
              payment_done = $8, \
-             rating = $9, \
-             comment = $10 \
+             agreed_price = $9, \
+             rating = $10, \
+             comment = $11 \
              WHERE id = $1",
         )
         .bind(job.id)
@@ -166,6 +176,7 @@ impl JobRepository for PostgresJobRepository {
         .bind(job.fee_paid)
         .bind(&job.payment_method)
         .bind(job.payment_done)
+        .bind(job.agreed_price)
         .bind(job.rating)
         .bind(&job.comment)
         .execute(&self.pool)
@@ -228,7 +239,7 @@ impl JobRepository for PostgresJobRepository {
     async fn find_client_history(&self, client_id: Uuid) -> Result<Vec<JobRequest>, JobError> {
         let rows = sqlx::query_as::<_, JobRequestRow>(
             "SELECT id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, \
-             fee_type, fee_paid, payment_method, payment_done, rating, title, address, comment, created_at \
+             fee_type, fee_amount, fee_paid, payment_method, payment_done, mobility_included, agreed_price, rating, title, address, comment, created_at \
              FROM job_requests WHERE client_id = $1 ORDER BY created_at DESC",
         )
         .bind(client_id)
@@ -247,7 +258,7 @@ impl JobRepository for PostgresJobRepository {
     async fn find_assigned_jobs(&self, technician_profile_id: i32) -> Result<Vec<JobRequest>, JobError> {
         let rows = sqlx::query_as::<_, JobRequestRow>(
             "SELECT id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, \
-             fee_type, fee_paid, payment_method, payment_done, rating, title, address, comment, created_at \
+             fee_type, fee_amount, fee_paid, payment_method, payment_done, mobility_included, agreed_price, rating, title, address, comment, created_at \
              FROM job_requests WHERE technician_profile_id = $1 ORDER BY created_at DESC",
         )
         .bind(technician_profile_id)
@@ -266,7 +277,7 @@ impl JobRepository for PostgresJobRepository {
     async fn find_open_bidding_jobs(&self, excluding_technician_profile_id: i32) -> Result<Vec<JobRequest>, JobError> {
         let rows = sqlx::query_as::<_, JobRequestRow>(
             "SELECT id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, \
-             fee_type, fee_paid, payment_method, payment_done, rating, title, address, comment, created_at \
+             fee_type, fee_amount, fee_paid, payment_method, payment_done, mobility_included, agreed_price, rating, title, address, comment, created_at \
              FROM job_requests \
              WHERE job_kind = 'bidding' AND status = 'pending' AND technician_profile_id IS NULL \
              AND id NOT IN (SELECT job_request_id FROM job_offers WHERE technician_profile_id = $1) \

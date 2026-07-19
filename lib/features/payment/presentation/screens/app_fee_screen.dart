@@ -48,6 +48,10 @@ class _AppFeeScreenState extends ConsumerState<AppFeeScreen> {
     final state = ref.watch(cercaControllerProvider);
     final controller = ref.watch(cercaControllerProvider.notifier);
     final fee = controller.currentFeeConfig;
+    // The amount is server-authoritative (set once when the job is created);
+    // the fee config's own amount is only used as a placeholder while the
+    // job is still loading, so the amount never visibly jumps after load.
+    final feeAmount = ref.watch(activeJobControllerProvider).value?.feeAmount ?? fee.amount;
 
     void goBack() {
       switch (state.feeType) {
@@ -87,7 +91,7 @@ class _AppFeeScreenState extends ConsumerState<AppFeeScreen> {
                             style: CercaText.sora(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary),
                           ),
                           const SizedBox(height: 6),
-                          Text(formatClp(fee.amount), style: CercaText.lora(fontSize: 32)),
+                          Text(formatClp(feeAmount), style: CercaText.lora(fontSize: 32)),
                         ],
                       ),
                     ),
@@ -129,7 +133,7 @@ class _AppFeeScreenState extends ConsumerState<AppFeeScreen> {
               ),
             ),
             PrimaryActionButton(
-              label: _paying ? 'Procesando…' : 'Pagar ${formatClp(fee.amount)} y contactar',
+              label: _paying ? 'Procesando…' : 'Pagar ${formatClp(feeAmount)} y contactar',
               enabled: !_paying,
               onTap: () => _pay(_paymentLabel(state.payment)),
             ),

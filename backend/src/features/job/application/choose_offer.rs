@@ -37,9 +37,10 @@ impl ChooseOfferUseCase {
             return Err(JobError::InvalidStatusTransition);
         }
 
-        // Set the technician profile ID on the job
+        // Set the technician profile ID and the accepted price on the job
         job.technician_profile_id = Some(offer.technician_profile_id);
-        
+        job.agreed_price = Some(offer.price);
+
         self.job_repo.save_job_request(&job).await?;
         Ok(())
     }

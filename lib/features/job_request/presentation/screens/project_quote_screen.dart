@@ -31,6 +31,7 @@ class _ProjectQuoteScreenState extends ConsumerState<ProjectQuoteScreen> {
       final job = await ref.read(jobRepositoryProvider).createJob(
             techTeamId: team.id,
             jobKind: 'project',
+            mobilityIncluded: ref.read(cercaControllerProvider).mobilityIncluded,
           );
       ref.read(jobSessionControllerProvider.notifier).setJobId(job.id);
       ref.read(cercaControllerProvider.notifier).requestProjectVisit();

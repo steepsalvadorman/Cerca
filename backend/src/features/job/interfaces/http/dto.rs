@@ -14,9 +14,12 @@ pub struct JobRequestResponse {
     pub status: String,
     pub timeline_step: i32,
     pub fee_type: String,
+    pub fee_amount: i32,
     pub fee_paid: bool,
     pub payment_method: Option<String>,
     pub payment_done: bool,
+    pub mobility_included: bool,
+    pub agreed_price: Option<i32>,
     pub rating: Option<i32>,
     pub title: Option<String>,
     pub address: Option<String>,
@@ -34,9 +37,12 @@ impl From<JobRequest> for JobRequestResponse {
             status: j.status.as_str().to_string(),
             timeline_step: j.timeline_step,
             fee_type: j.fee_type,
+            fee_amount: j.fee_amount,
             fee_paid: j.fee_paid,
             payment_method: j.payment_method,
             payment_done: j.payment_done,
+            mobility_included: j.mobility_included,
+            agreed_price: j.agreed_price,
             rating: j.rating,
             title: j.title,
             address: j.address,
@@ -52,6 +58,7 @@ pub struct CreateJobRequest {
     pub job_kind: String, // "direct", "bidding", "project"
     pub title: Option<String>,
     pub address: Option<String>,
+    pub mobility_included: Option<bool>,
 }
 
 #[derive(Deserialize)]

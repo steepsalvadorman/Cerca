@@ -34,6 +34,19 @@ impl JobStatus {
     }
 }
 
+/// The app-fee schedule (CLP), keyed by `fee_type`. The single source of
+/// truth for what a client is actually charged — the frontend used to keep
+/// its own copy of these amounts purely for display, with nothing tying it
+/// to what the backend would accept.
+fn fee_amount_for(fee_type: &str) -> i32 {
+    match fee_type {
+        "direct" => 2990,
+        "bidding" => 4990,
+        "project" => 4990,
+        _ => 0,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct JobRequest {
     pub id: Uuid,
@@ -44,9 +57,12 @@ pub struct JobRequest {
     pub status: JobStatus,
     pub timeline_step: i32, // 0: Confirmado, 1: En camino, 2: En el trabajo, 3: Finalizado
     pub fee_type: String, // "direct", "bidding", "project"
+    pub fee_amount: i32,
     pub fee_paid: bool,
     pub payment_method: Option<String>,
     pub payment_done: bool,
+    pub mobility_included: bool,
+    pub agreed_price: Option<i32>,
     pub rating: Option<i32>,
     pub title: Option<String>,
     pub address: Option<String>,
@@ -63,6 +79,7 @@ impl JobRequest {
         fee_type: String,
         title: Option<String>,
         address: Option<String>,
+        mobility_included: bool,
     ) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -72,10 +89,13 @@ impl JobRequest {
             job_kind,
             status: JobStatus::Pending,
             timeline_step: 0,
+            fee_amount: fee_amount_for(&fee_type),
             fee_type,
             fee_paid: false,
             payment_method: None,
             payment_done: false,
+            mobility_included,
+            agreed_price: None,
             rating: None,
             title,
             address,

@@ -10,6 +10,7 @@ pub struct CreateJobInput {
     pub job_kind: String, // "direct", "bidding", "project"
     pub title: Option<String>,
     pub address: Option<String>,
+    pub mobility_included: Option<bool>,
 }
 
 pub struct CreateJobUseCase {
@@ -38,6 +39,7 @@ impl CreateJobUseCase {
             fee_type,
             input.title,
             input.address,
+            input.mobility_included.unwrap_or(true),
         );
 
         self.job_repo.create_job_request(&job).await?;

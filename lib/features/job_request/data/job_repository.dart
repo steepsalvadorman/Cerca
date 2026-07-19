@@ -24,6 +24,7 @@ class JobRepository {
     required String jobKind,
     String? title,
     String? address,
+    bool? mobilityIncluded,
   }) async {
     try {
       final response = await _dio.post('/jobs', data: {
@@ -32,6 +33,7 @@ class JobRepository {
         'job_kind': jobKind,
         'title': title,
         'address': address,
+        'mobility_included': mobilityIncluded,
       });
       return JobRequest.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

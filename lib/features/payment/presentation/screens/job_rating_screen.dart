@@ -10,6 +10,7 @@ import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
 import '../../../job_request/application/active_job_controller.dart';
+import '../../../job_request/presentation/agreed_price_label.dart';
 import '../../../technician/application/providers_controller.dart';
 
 class JobRatingScreen extends ConsumerStatefulWidget {
@@ -65,6 +66,7 @@ class _JobRatingScreenState extends ConsumerState<JobRatingScreen> {
       }
     }
     final rated = job?.rating != null;
+    final agreedLabel = agreedPriceLabel(job, providersPage);
 
     return Scaffold(
       backgroundColor: Colors.white,

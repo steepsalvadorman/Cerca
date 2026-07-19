@@ -15,6 +15,7 @@ import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
 import '../../../job_request/application/active_job_controller.dart';
 import '../../../job_request/domain/job_request.dart';
+import '../../../job_request/presentation/agreed_price_label.dart';
 import '../../../technician/application/providers_controller.dart';
 import '../../application/tracking_controller.dart';
 
@@ -75,6 +76,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
         }
       }
     }
+    final agreedLabel = agreedPriceLabel(job, providersPage);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -185,11 +187,11 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                       ),
                       child: Column(
                         children: [
-                          _SummaryRow('Trabajo', job?.title ?? 'Fuga de agua'),
+                          _SummaryRow('Trabajo', (job?.title?.isNotEmpty ?? false) ? job!.title! : 'Sin título'),
                           const SizedBox(height: 6),
-                          _SummaryRow('Dirección', job?.address ?? 'Av. Providencia 1234'),
+                          _SummaryRow('Dirección', (job?.address?.isNotEmpty ?? false) ? job!.address! : 'Sin dirección'),
                           const SizedBox(height: 6),
-                          _SummaryRow('Acordado', '\$32.000', valueColor: AppColors.cercaPrimary, bold: true),
+                          _SummaryRow('Acordado', agreedLabel, valueColor: AppColors.cercaPrimary, bold: true),
                         ],
                       ),
                     ),
