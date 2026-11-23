@@ -40,6 +40,7 @@ pub trait TechnicianRepository: Send + Sync {
         &self,
         technician_profile_id: i32,
         document_key: &str,
+        storage_key: &str,
     ) -> Result<(), TechnicianError>;
 
     /// Recomputes `rating` and `reviews` from completed jobs that carry

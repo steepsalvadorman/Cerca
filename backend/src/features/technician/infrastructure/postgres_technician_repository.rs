@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::features::technician::domain::technician_document::MANDATORY_DOCUMENT_KEYS;
 use crate::features::technician::domain::{
     DocStatus, TechTeam, TechnicianDocument, TechnicianError, TechnicianProfile, TechnicianRepository,
 };
@@ -197,7 +198,8 @@ impl TechnicianRepository for PostgresTechnicianRepository {
              tp.pin_top, tp.pin_left, tp.coverage_km, tp.available_days, tp.categories, tp.is_verified \
              FROM technician_profiles tp \
              JOIN users u ON tp.user_id = u.id \
-             WHERE $1 IS NULL OR $1 = ANY(tp.categories)",
+             WHERE $1 IS NULL OR $1 = ANY(tp.categories) \
+             ORDER BY tp.is_verified DESC, tp.rating DESC, tp.id LIMIT 200",
         )
         .bind(category)
         .fetch_all(&self.pool)
@@ -210,7 +212,7 @@ impl TechnicianRepository for PostgresTechnicianRepository {
     async fn list_teams(&self) -> Result<Vec<TechTeam>, TechnicianError> {
         let rows = sqlx::query_as::<_, TechTeamRow>(
             "SELECT id, name, mono, oficio, rating, reviews, distance, price_label, pin_top, pin_left, crew, projects, labor_cost, materials_cost, mobility_cost \
-             FROM tech_teams",
+             FROM tech_teams ORDER BY id LIMIT 200",
         )
         .fetch_all(&self.pool)
         .await
@@ -263,6 +265,17 @@ impl TechnicianRepository for PostgresTechnicianRepository {
         // Back to `pending` even if this document was already uploaded:
         // the previous file stays in the bucket but is no longer the one
         // this row points at, and it only counts again once confirmed.
+        // Replacing a mandatory document also withdraws verification, in
+        // the same transaction: the reviewed file is no longer on record
+        // (audit run-1, stale-is-verified-after-document-reupload).
+        let mut tx = self.pool.begin().await.map_err(|e| TechnicianError::Repository(e.to_string()))?;
+        if MANDATORY_DOCUMENT_KEYS.contains(&document_key) {
+            sqlx::query("UPDATE technician_profiles SET is_verified = FALSE WHERE id = $1")
+                .bind(technician_profile_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| TechnicianError::Repository(e.to_string()))?;
+        }
         sqlx::query(
             "INSERT INTO technician_documents \
                 (technician_profile_id, document_key, status, storage_key, content_type, original_filename, uploaded_at) \
@@ -279,26 +292,28 @@ impl TechnicianRepository for PostgresTechnicianRepository {
         .bind(storage_key)
         .bind(content_type)
         .bind(original_filename)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| TechnicianError::Repository(e.to_string()))?;
 
-        Ok(())
+        tx.commit().await.map_err(|e| TechnicianError::Repository(e.to_string()))
     }
 
     async fn confirm_document_upload(
         &self,
         technician_profile_id: i32,
         document_key: &str,
+        storage_key: &str,
     ) -> Result<(), TechnicianError> {
         // `storage_key IS NOT NULL` is what makes this un-fakeable: only
         // a row created by `start_document_upload` can be confirmed.
         let result = sqlx::query(
             "UPDATE technician_documents SET status = 'uploaded', uploaded_at = now() \
-             WHERE technician_profile_id = $1 AND document_key = $2 AND storage_key IS NOT NULL",
+             WHERE technician_profile_id = $1 AND document_key = $2 AND storage_key = $3",
         )
         .bind(technician_profile_id)
         .bind(document_key)
+        .bind(storage_key)
         .execute(&self.pool)
         .await
         .map_err(|e| TechnicianError::Repository(e.to_string()))?;
@@ -310,6 +325,9 @@ impl TechnicianRepository for PostgresTechnicianRepository {
         Ok(())
     }
 
+    /// One vote per client (their most recent rating): a second account
+    /// hiring the same technician over and over can no longer outvote
+    /// real clients (audit run-1, direct-hire-sockpuppet-rating-inflation).
     async fn recalculate_rating_from_jobs(
         &self,
         technician_profile_id: i32,
@@ -319,10 +337,13 @@ impl TechnicianRepository for PostgresTechnicianRepository {
              SET rating = COALESCE(stats.avg_rating, 5.0), \
                  reviews = COALESCE(stats.review_count, 0) \
              FROM ( \
-                 SELECT AVG(rating::float8) AS avg_rating, \
-                        COUNT(*)::int AS review_count \
-                 FROM job_requests \
-                 WHERE technician_profile_id = $1 AND rating IS NOT NULL \
+                 SELECT AVG(r) AS avg_rating, COUNT(*)::int AS review_count \
+                 FROM ( \
+                     SELECT DISTINCT ON (client_id) rating::float8 AS r \
+                     FROM job_requests \
+                     WHERE technician_profile_id = $1 AND rating IS NOT NULL \
+                     ORDER BY client_id, created_at DESC \
+                 ) per_client \
              ) stats \
              WHERE tp.id = $1",
         )

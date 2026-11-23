@@ -404,22 +404,53 @@ async fn every_allowed_format_can_be_uploaded(pool: PgPool) {
     }
 }
 
+/// Uploading the mandatory documents proves only that files of the right
+/// type exist. Verification — the bidding gate — waits for a person to
+/// review them (`bin/verify_technician.rs`). Audit run-1:
+/// technician/upload_document/auto-verify-bypasses-bidding-gate.
 #[sqlx::test(migrations = "./migrations")]
-async fn a_technician_is_verified_once_every_mandatory_document_lands(pool: PgPool) {
+async fn mandatory_documents_alone_never_verify_a_technician(pool: PgPool) {
     let user_id = create_technician(&pool).await;
     let storage = FakeStorage::default();
 
-    upload_and_confirm(&pool, &storage, user_id, "cedula").await;
-    upload_and_confirm(&pool, &storage, user_id, "antecedentes").await;
+    for key in ["cedula", "antecedentes", "especialidad"] {
+        upload_and_confirm(&pool, &storage, user_id, key).await;
+    }
 
-    let halfway = repo(&pool).find_profile_by_user_id(user_id).await.unwrap().unwrap();
-    assert!(!halfway.is_verified, "two of three mandatory documents is not enough");
+    let profile = repo(&pool).find_profile_by_user_id(user_id).await.unwrap().unwrap();
+    assert!(!profile.is_verified, "verification needs a human review");
+    let documents = repo(&pool).find_documents(profile.id).await.unwrap();
+    assert_eq!(documents.iter().filter(|d| d.status == DocStatus::Uploaded).count(), 3);
+}
 
-    upload_and_confirm(&pool, &storage, user_id, "especialidad").await;
+/// Replacing a mandatory document after review withdraws verification:
+/// the reviewed file is no longer the one on record. Audit run-1:
+/// technician/upload_document/stale-is-verified-after-document-reupload.
+#[sqlx::test(migrations = "./migrations")]
+async fn replacing_a_mandatory_document_withdraws_verification(pool: PgPool) {
+    let user_id = create_technician(&pool).await;
+    let storage = FakeStorage::default();
+    for key in ["cedula", "antecedentes", "especialidad"] {
+        upload_and_confirm(&pool, &storage, user_id, key).await;
+    }
+    sqlx::query("UPDATE technician_profiles SET is_verified = TRUE WHERE user_id = $1")
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
-    let verified = repo(&pool).find_profile_by_user_id(user_id).await.unwrap().unwrap();
-    // `seguro` is optional, so verification must not wait for it.
-    assert!(verified.is_verified);
+    CreateDocumentUploadUrlUseCase::new(repo(&pool), Arc::new(storage.clone()))
+        .execute(CreateDocumentUploadUrlInput {
+            user_id,
+            document_key: "cedula".to_string(),
+            content_type: "image/png".to_string(),
+            original_filename: None,
+        })
+        .await
+        .unwrap();
+
+    let profile = repo(&pool).find_profile_by_user_id(user_id).await.unwrap().unwrap();
+    assert!(!profile.is_verified, "a stale review must not keep authorizing bids");
 }
 
 #[sqlx::test(migrations = "./migrations")]
