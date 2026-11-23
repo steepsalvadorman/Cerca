@@ -98,6 +98,7 @@ impl IntoResponse for AppError {
             // than 401: the Google token was fine, the *link* is what
             // cannot proceed unattended.
             AppError::Auth(AuthError::LinkRequiresPassword) => (StatusCode::CONFLICT, self.to_string()),
+            AppError::Auth(AuthError::AccountAlreadyLinked) => (StatusCode::CONFLICT, self.to_string()),
             // The request is well-formed but cannot complete until the
             // app asks whether this is a client or a technician and
             // sends the answer back. 422 is what the app keys on.
@@ -165,6 +166,7 @@ impl IntoResponse for AppError {
             AppError::Job(JobError::PaymentFailed) => (StatusCode::PAYMENT_REQUIRED, self.to_string()),
             // 402: the app keys its "compra créditos" prompt on this.
             AppError::Job(JobError::InsufficientCredits) => (StatusCode::PAYMENT_REQUIRED, self.to_string()),
+            AppError::Job(JobError::TooManyOpenJobs) => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
             AppError::Job(JobError::PaymentUnavailable) => {
                 tracing::error!("payment gateway is unavailable — check PAYMENTS_MODE");
                 (StatusCode::SERVICE_UNAVAILABLE, self.to_string())
@@ -176,6 +178,7 @@ impl IntoResponse for AppError {
 
             AppError::Chat(ChatError::JobNotFound) => (StatusCode::NOT_FOUND, self.to_string()),
             AppError::Chat(ChatError::Unauthorized) => (StatusCode::FORBIDDEN, self.to_string()),
+            AppError::Chat(ChatError::ThreadFull) => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
             AppError::Chat(ChatError::JobClosed) | AppError::Chat(ChatError::ReadOnly) => {
                 (StatusCode::BAD_REQUEST, self.to_string())
             }
@@ -198,6 +201,7 @@ impl IntoResponse for AppError {
             AppError::Credit(CreditError::NotATechnician) => (StatusCode::FORBIDDEN, self.to_string()),
             AppError::Credit(CreditError::UnknownPack) => (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()),
             AppError::Credit(CreditError::PurchaseConflict) => (StatusCode::CONFLICT, self.to_string()),
+            AppError::Credit(CreditError::PaymentPending) => (StatusCode::CONFLICT, self.to_string()),
             // The PSP's own words ("fondos insuficientes") are what the
             // technician needs to fix it, so they go through verbatim.
             AppError::Credit(CreditError::PaymentDeclined(_)) => (StatusCode::PAYMENT_REQUIRED, self.to_string()),

@@ -7,7 +7,8 @@ use crate::features::job::domain::{
     JobError, JobOffer, JobPaymentRecord, JobRequest, JobRepository, JobStatus,
 };
 use crate::features::credits::domain::Wallet;
-use crate::features::credits::infrastructure::read_wallet;
+use crate::features::credits::domain::OPEN_AUCTION_TTL_DAYS;
+use crate::features::credits::infrastructure::{read_wallet, wallet_on};
 use crate::features::technician::domain::TechnicianProfile;
 
 #[derive(sqlx::FromRow)]
@@ -158,6 +159,59 @@ fn update_job_query(job: &JobRequest) -> sqlx::query::Query<'_, sqlx::Postgres, 
     .bind(&job.address)
 }
 
+/// Serializes every credit-moving operation of one technician (offer,
+/// auction win, direct acceptance) on their profile row.
+async fn lock_technician(tx: &mut sqlx::PgConnection, technician_profile_id: i32) -> Result<(), JobError> {
+    sqlx::query("SELECT id FROM technician_profiles WHERE id = $1 FOR UPDATE")
+        .bind(technician_profile_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| JobError::Repository(e.to_string()))?
+        .ok_or(JobError::Unauthorized)?;
+    Ok(())
+}
+
+impl PostgresJobRepository {
+    /// Saves a job that just started for its technician and debits them
+    /// one credit, atomically and under their row lock. With
+    /// `require_free_credit`, refuses (InsufficientCredits) unless a credit
+    /// not held by open offers is available.
+    async fn start_job_charging_credit(&self, job: &JobRequest, require_free_credit: bool) -> Result<(), JobError> {
+        let technician_profile_id = job
+            .technician_profile_id
+            .ok_or_else(|| JobError::Repository("starting a job without a technician".to_string()))?;
+        let repo_err = |e: sqlx::Error| JobError::Repository(e.to_string());
+
+        let mut tx = self.pool.begin().await.map_err(repo_err)?;
+        lock_technician(&mut tx, technician_profile_id).await?;
+
+        if require_free_credit {
+            let wallet = wallet_on(&mut tx, technician_profile_id).await.map_err(repo_err)?;
+            if !wallet.can_bid() {
+                return Err(JobError::InsufficientCredits);
+            }
+        }
+
+        let result = update_job_query(job).execute(&mut *tx).await.map_err(repo_err)?;
+        if result.rows_affected() == 0 {
+            return Err(JobError::ConcurrentModification);
+        }
+
+        sqlx::query(
+            "INSERT INTO credit_ledger (technician_profile_id, delta, reason, job_request_id) \
+             VALUES ($1, -1, 'job_won', $2) \
+             ON CONFLICT (job_request_id) WHERE reason = 'job_won' DO NOTHING",
+        )
+        .bind(technician_profile_id)
+        .bind(job.id)
+        .execute(&mut *tx)
+        .await
+        .map_err(repo_err)?;
+
+        tx.commit().await.map_err(repo_err)
+    }
+}
+
 #[async_trait]
 impl JobRepository for PostgresJobRepository {
     async fn create_job_request(&self, job: &JobRequest) -> Result<(), JobError> {
@@ -232,13 +286,19 @@ impl JobRepository for PostgresJobRepository {
     }
 
     async fn assign_winner(&self, job: &JobRequest) -> Result<(), JobError> {
-        let technician_profile_id = job
-            .technician_profile_id
-            .ok_or_else(|| JobError::Repository("assign_winner without a technician".to_string()))?;
-        let repo_err = |e: sqlx::Error| JobError::Repository(e.to_string());
+        // The winner's offer already reserved this credit at submission
+        // (wallet `reserved`), so no free credit is required here.
+        self.start_job_charging_credit(job, false).await
+    }
 
-        // The job starting and the winner paying their credit are one
-        // fact: either both are recorded or neither is.
+    async fn accept_direct_job(&self, job: &JobRequest) -> Result<(), JobError> {
+        // A direct hire had no offer reserving a credit: acceptance needs
+        // a free one, checked under the same lock as offers.
+        self.start_job_charging_credit(job, true).await
+    }
+
+    async fn cancel_job(&self, job: &JobRequest, refund_technician_credit: bool) -> Result<(), JobError> {
+        let repo_err = |e: sqlx::Error| JobError::Repository(e.to_string());
         let mut tx = self.pool.begin().await.map_err(repo_err)?;
 
         let result = update_job_query(job).execute(&mut *tx).await.map_err(repo_err)?;
@@ -246,18 +306,36 @@ impl JobRepository for PostgresJobRepository {
             return Err(JobError::ConcurrentModification);
         }
 
-        sqlx::query(
-            "INSERT INTO credit_ledger (technician_profile_id, delta, reason, job_request_id) \
-             VALUES ($1, -1, 'job_won', $2) \
-             ON CONFLICT (job_request_id) WHERE reason = 'job_won' DO NOTHING",
-        )
-        .bind(technician_profile_id)
-        .bind(job.id)
-        .execute(&mut *tx)
-        .await
-        .map_err(repo_err)?;
+        if refund_technician_credit {
+            // Gives back exactly the credit this job charged (if it did),
+            // once: the partial unique index on refunds absorbs retries.
+            sqlx::query(
+                "INSERT INTO credit_ledger (technician_profile_id, delta, reason, job_request_id) \
+                 SELECT technician_profile_id, 1, 'refund', job_request_id FROM credit_ledger \
+                 WHERE job_request_id = $1 AND reason = 'job_won' \
+                 ON CONFLICT (job_request_id) WHERE reason = 'refund' DO NOTHING",
+            )
+            .bind(job.id)
+            .execute(&mut *tx)
+            .await
+            .map_err(repo_err)?;
+        }
 
         tx.commit().await.map_err(repo_err)
+    }
+
+    async fn count_open_jobs_by_client(&self, client_id: Uuid) -> Result<i64, JobError> {
+        let (count,): (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::BIGINT FROM job_requests \
+             WHERE client_id = $1 AND status IN ('pending', 'active') \
+               AND NOT (job_kind = 'bidding' AND status = 'pending' AND created_at <= now() - make_interval(days => $2))",
+        )
+        .bind(client_id)
+        .bind(OPEN_AUCTION_TTL_DAYS)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| JobError::Repository(e.to_string()))?;
+        Ok(count)
     }
 
     async fn technician_wallet(&self, technician_profile_id: i32) -> Result<Wallet, JobError> {
@@ -301,6 +379,20 @@ impl JobRepository for PostgresJobRepository {
     }
 
     async fn add_job_offer(&self, job_request_id: Uuid, technician_profile_id: i32, price: i32, eta: String) -> Result<(), JobError> {
+        let repo_err = |e: sqlx::Error| JobError::Repository(e.to_string());
+
+        // Check-and-insert under the technician's row lock. Before audit
+        // run-1 the wallet was read in one statement and the offer
+        // inserted in another, so concurrent submissions all saw the same
+        // free credit and the balance could go arbitrarily negative.
+        let mut tx = self.pool.begin().await.map_err(repo_err)?;
+        lock_technician(&mut tx, technician_profile_id).await?;
+
+        let wallet = wallet_on(&mut tx, technician_profile_id).await.map_err(repo_err)?;
+        if !wallet.can_bid() {
+            return Err(JobError::InsufficientCredits);
+        }
+
         sqlx::query(
             "INSERT INTO job_offers (job_request_id, technician_profile_id, price, eta) \
              VALUES ($1, $2, $3, $4)",
@@ -309,11 +401,11 @@ impl JobRepository for PostgresJobRepository {
         .bind(technician_profile_id)
         .bind(price)
         .bind(&eta)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
-        .map_err(|e| JobError::Repository(e.to_string()))?;
+        .map_err(repo_err)?;
 
-        Ok(())
+        tx.commit().await.map_err(repo_err)
     }
 
     async fn find_client_history(&self, client_id: Uuid) -> Result<Vec<JobRequest>, JobError> {
@@ -339,7 +431,7 @@ impl JobRepository for PostgresJobRepository {
         let rows = sqlx::query_as::<_, JobRequestRow>(
             "SELECT id, client_id, technician_profile_id, tech_team_id, job_kind, status, timeline_step, \
              fee_type, fee_amount, fee_paid, payment_method, payment_done, mobility_included, agreed_price, rating, title, address, comment, cancelled_at, cancelled_by, cancellation_reason, version, created_at \
-             FROM job_requests WHERE technician_profile_id = $1 ORDER BY created_at DESC",
+             FROM job_requests WHERE technician_profile_id = $1 ORDER BY created_at DESC LIMIT 100",
         )
         .bind(technician_profile_id)
         .fetch_all(&self.pool)
@@ -360,10 +452,12 @@ impl JobRepository for PostgresJobRepository {
              fee_type, fee_amount, fee_paid, payment_method, payment_done, mobility_included, agreed_price, rating, title, address, comment, cancelled_at, cancelled_by, cancellation_reason, version, created_at \
              FROM job_requests \
              WHERE job_kind = 'bidding' AND status = 'pending' AND technician_profile_id IS NULL \
-             AND id NOT IN (SELECT job_request_id FROM job_offers WHERE technician_profile_id = $1) \
-             ORDER BY created_at DESC",
+             AND created_at > now() - make_interval(days => $2) \
+             AND NOT EXISTS (SELECT 1 FROM job_offers jo WHERE jo.job_request_id = job_requests.id AND jo.technician_profile_id = $1) \
+             ORDER BY created_at DESC LIMIT 100",
         )
         .bind(excluding_technician_profile_id)
+        .bind(OPEN_AUCTION_TTL_DAYS)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| JobError::Repository(e.to_string()))?;

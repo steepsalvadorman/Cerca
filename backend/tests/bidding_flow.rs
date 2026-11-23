@@ -172,6 +172,7 @@ async fn create_direct_job(pool: &PgPool, client_id: Uuid, technician_profile_id
         .await
         .unwrap();
 
+    accept_direct_for_test(pool, job.id).await;
     job.id
 }
 
@@ -661,4 +662,16 @@ async fn an_unrelated_technician_cannot_read_a_direct_job(pool: PgPool) {
     .await;
 
     assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+/// A direct hire waits for the technician since audit run-1; tests that
+/// need a running job accept it the same way the app does (one credit
+/// from the technician's welcome grant).
+async fn accept_direct_for_test(pool: &sqlx::PgPool, job_id: uuid::Uuid) {
+    use backend::features::job::domain::JobRepository as _;
+    let repo = backend::features::job::infrastructure::PostgresJobRepository::new(pool.clone());
+    let mut job = repo.find_job_request_by_id(job_id).await.unwrap().unwrap();
+    let profile = job.technician_profile_id.unwrap();
+    job.accept_direct(profile).unwrap();
+    repo.accept_direct_job(&job).await.unwrap();
 }

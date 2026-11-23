@@ -51,9 +51,13 @@ impl CancelJobUseCase {
 
         // The domain decides which states are cancellable; this keeps the
         // rule in one place instead of duplicating a status check here.
+        // Decided on the state *before* cancelling: a job the technician
+        // paid a credit to start, cancelled before any work, gives that
+        // credit back (otherwise a client could burn it at no cost).
+        let refund = job.refunds_credit_on_cancel();
         job.cancel(input.client_id, reason)?;
 
-        self.job_repo.save_job_request(&job).await?;
+        self.job_repo.cancel_job(&job, refund).await?;
         Ok(())
     }
 }

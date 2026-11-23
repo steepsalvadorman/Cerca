@@ -95,6 +95,24 @@ class JobRepository {
     }
   }
 
+  /// The named technician accepts a direct hire (costs one credit).
+  Future<void> acceptDirect(String jobId) async {
+    try {
+      await _dio.post('/jobs/$jobId/accept');
+    } on DioException catch (e) {
+      throw apiExceptionOf(e);
+    }
+  }
+
+  /// The named technician turns down a direct hire (free).
+  Future<void> declineDirect(String jobId) async {
+    try {
+      await _dio.post('/jobs/$jobId/decline');
+    } on DioException catch (e) {
+      throw apiExceptionOf(e);
+    }
+  }
+
   Future<void> chooseOffer(String jobId, int offerId) async {
     try {
       await _dio.post('/jobs/$jobId/offers/choose', data: {'offer_id': offerId});

@@ -53,6 +53,7 @@ const CONFIG_VARS: &[ConfigVar] = &[
     // Only needed with PAYMENTS_MODE=culqi (main refuses to boot without them then).
     ConfigVar { name: "CULQI_SECRET_KEY", optional: true, read_in: "src/config.rs" },
     ConfigVar { name: "CULQI_PUBLIC_KEY", optional: true, read_in: "src/config.rs" },
+    ConfigVar { name: "TRUSTED_PROXY_HOPS", optional: true, read_in: "src/config.rs" },
 ];
 
 fn render_manifest() -> String {
@@ -145,4 +146,29 @@ fn the_expected_variable_list_matches_the_config_source() {
         "PORT is deliberately not declared — Render injects it. If that changed, update \
          the comment in render.yaml and this assertion together."
     );
+}
+
+/// The committed manifest is what Render deploys. It must turn the
+/// production guards on and must never ship simulated payments: with
+/// `APP_ENV` missing and `PAYMENTS_MODE: fake`, any technician could mint
+/// free credits and the demo-password and test-key refusals were skipped.
+#[test]
+fn the_deploy_manifest_runs_in_production_mode_with_real_payments() {
+    let manifest = render_manifest();
+    let value_of = |key: &str| -> Option<String> {
+        let mut lines = manifest.lines();
+        while let Some(line) = lines.next() {
+            if line.trim() == format!("- key: {key}") {
+                return lines
+                    .next()
+                    .and_then(|l| l.trim().strip_prefix("value:"))
+                    .map(|v| v.trim().trim_matches('"').to_string());
+            }
+        }
+        None
+    };
+    assert_eq!(value_of("APP_ENV").as_deref(), Some("production"), "render.yaml must set APP_ENV: production");
+    let payments = value_of("PAYMENTS_MODE");
+    assert_ne!(payments.as_deref(), Some("fake"), "render.yaml must not deploy PAYMENTS_MODE: fake");
+    assert!(payments.is_some(), "render.yaml must declare PAYMENTS_MODE explicitly");
 }

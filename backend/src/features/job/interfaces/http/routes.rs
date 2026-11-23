@@ -4,7 +4,7 @@ use axum::Router;
 use crate::state::AppState;
 
 use super::handlers::{
-    advance_progress, cancel_job, choose_offer, create_job, get_client_history, get_job, get_offers,
+    accept_direct_job, advance_progress, cancel_job, decline_direct_job, choose_offer, create_job, get_client_history, get_job, get_offers,
     get_technician_jobs, pay_fee, rate_job, submit_offer,
 };
 
@@ -14,6 +14,8 @@ pub fn job_routes() -> Router<AppState> {
         .route("/jobs/{id}", get(get_job))
         .route("/jobs/{id}/pay", post(pay_fee))
         .route("/jobs/{id}/advance", post(advance_progress))
+        .route("/jobs/{id}/accept", post(accept_direct_job))
+        .route("/jobs/{id}/decline", post(decline_direct_job))
         .route("/jobs/{id}/rate", post(rate_job))
         .route("/jobs/{id}/cancel", post(cancel_job))
         .route("/jobs/{id}/offers", get(get_offers).post(submit_offer))

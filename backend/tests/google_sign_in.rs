@@ -251,13 +251,14 @@ async fn google_does_not_adopt_an_account_that_has_its_own_password() {
     assert_eq!(users.users.lock().unwrap().len(), 1);
 }
 
-/// The safe half of the same rule: an account created by a provider has no
-/// second credential for anyone to hold, so its email may be adopted
-/// without further proof. This is how someone who first signed in with
-/// Google on another provider (or a future Apple/Google mix) keeps one
-/// account instead of two.
+/// A password-less account (seeded demo account, or one created by another
+/// Google subject) is NOT adopted by email alone: anyone holding a Google
+/// account for that address would otherwise take it over, including the
+/// pre-verified demo technicians (audit run-1,
+/// auth:google-link:demo-seed-null-password-takeover and
+/// auth:google-link:duplicate-subject-email-collision).
 #[tokio::test]
-async fn google_adopts_a_password_less_account_with_the_same_verified_email() {
+async fn google_never_adopts_an_existing_account_by_email_alone() {
     let users = Arc::new(InMemoryUsers::default());
     let existing = User::register_with_provider(
         Email::parse("ana@example.com").unwrap(),
@@ -266,21 +267,16 @@ async fn google_adopts_a_password_less_account_with_the_same_verified_email() {
     );
     users.insert(&existing).await.unwrap();
 
-    let result = use_case(
-        users.clone(),
-        identity("google-sub-1", "ana@example.com", true, Some("Ana")),
-    )
-    .execute(input(Some("technician")))
-    .await
-    .unwrap();
+    let error = expect_error(
+        use_case(users.clone(), identity("google-sub-2", "ana@example.com", true, Some("Ana")))
+            .execute(input(Some("technician")))
+            .await,
+        "adopting a password-less account by email",
+    );
 
-    assert!(!result.created, "linking is not account creation");
-    assert_eq!(result.authenticated.user.id, existing.id);
-    // The role travelling with the request must not quietly re-cast an
-    // existing client as a technician.
-    assert_eq!(result.authenticated.user.role, Role::Client);
+    assert!(matches!(error, AuthError::AccountAlreadyLinked));
     assert_eq!(users.users.lock().unwrap().len(), 1);
-    assert_eq!(users.identities.lock().unwrap().len(), 1);
+    assert_eq!(users.identities.lock().unwrap().len(), 0, "no identity may be linked");
 }
 
 #[tokio::test]

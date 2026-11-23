@@ -26,3 +26,8 @@ pub const CREDIT_PACKS: &[CreditPack] = &[
 /// Granted once per technician, the first time their wallet is read, so a
 /// new technician can win their first jobs before paying anything.
 pub const WELCOME_CREDITS: i32 = 3;
+
+/// An auction nobody picked within this many days is closed: it leaves
+/// every technician's feed, stops holding their credits back, and can no
+/// longer be won. Without it, abandoned auctions locked credits forever.
+pub const OPEN_AUCTION_TTL_DAYS: i32 = 14;

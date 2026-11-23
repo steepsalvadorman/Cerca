@@ -1,10 +1,7 @@
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::features::technician::domain::{
-    is_valid_document_key, DocStatus, TechnicianError, TechnicianProfile, TechnicianRepository,
-    MANDATORY_DOCUMENT_KEYS,
-};
+use crate::features::technician::domain::{is_valid_document_key, TechnicianError, TechnicianRepository};
 
 use super::ports::ObjectStorage;
 
@@ -178,11 +175,13 @@ impl ConfirmDocumentUploadUseCase {
         self.verify_object(&storage_key, document.content_type.as_deref())
             .await?;
 
+        // Bound to the exact object just checked: if a new upload URL
+        // replaced the slot during the checks above, this confirms nothing.
         self.technician_repo
-            .confirm_document_upload(profile.id, &input.document_key)
+            .confirm_document_upload(profile.id, &input.document_key, &storage_key)
             .await?;
 
-        self.refresh_verification(profile).await
+        Ok(())
     }
 
     /// Confirms the bucket holds an object that is plausibly the file the
@@ -250,23 +249,9 @@ impl ConfirmDocumentUploadUseCase {
         Ok(())
     }
 
-    /// A technician counts as verified once every mandatory document has
-    /// a confirmed file. `seguro` is optional and deliberately excluded.
-    async fn refresh_verification(&self, profile: TechnicianProfile) -> Result<(), TechnicianError> {
-        let documents = self.technician_repo.find_documents(profile.id).await?;
-
-        let all_mandatory_uploaded = MANDATORY_DOCUMENT_KEYS.iter().all(|required| {
-            documents
-                .iter()
-                .any(|doc| doc.document_key == *required && doc.status == DocStatus::Uploaded)
-        });
-
-        if all_mandatory_uploaded && !profile.is_verified {
-            let mut verified = profile;
-            verified.is_verified = true;
-            self.technician_repo.save_profile(&verified).await?;
-        }
-
-        Ok(())
-    }
+    // Verification is NOT granted here any more. Confirming the mandatory
+    // documents only proves files of the right type exist; a person must
+    // review them (`cargo run --bin verify_technician`) before
+    // `is_verified` — the bidding gate — is set (audit run-1,
+    // auto-verify-bypasses-bidding-gate).
 }

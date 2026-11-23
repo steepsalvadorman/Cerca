@@ -7,6 +7,7 @@ pub mod job_participation;
 pub mod pay_fee;
 pub mod ports;
 pub mod rate_job;
+pub mod respond_direct_job;
 pub mod submit_offer;
 
 use std::sync::Arc;
@@ -15,10 +16,11 @@ use uuid::Uuid;
 pub use advance_progress::AdvanceProgressUseCase;
 pub use cancel_job::{CancelJobInput, CancelJobUseCase};
 pub use choose_offer::{ChooseOfferInput, ChooseOfferUseCase};
-pub use create_job::{CreateJobInput, CreateJobUseCase};
+pub use create_job::{CreateJobInput, CreateJobUseCase, MAX_OPEN_JOBS_PER_CLIENT};
 pub use get_technician_jobs::{GetTechnicianJobsUseCase, TechnicianJobsOutput};
 pub use pay_fee::{PayFeeInput, PayFeeResult, PayFeeUseCase};
 pub use rate_job::{RateJobInput, RateJobUseCase};
+pub use respond_direct_job::RespondDirectJobUseCase;
 pub use ports::{PaymentCapture, PaymentError, PaymentGateway, TokenCharge};
 pub use submit_offer::{SubmitOfferInput, SubmitOfferUseCase};
 
@@ -126,12 +128,13 @@ impl GetJobRequestUseCase {
 
 pub struct GetJobOffersUseCase {
     job_repo: Arc<dyn JobRepository>,
-    technician_repo: Arc<dyn TechnicianRepository>,
+    // Kept for constructor compatibility; offers are owner-only now.
+    _technician_repo: Arc<dyn TechnicianRepository>,
 }
 
 impl GetJobOffersUseCase {
     pub fn new(job_repo: Arc<dyn JobRepository>, technician_repo: Arc<dyn TechnicianRepository>) -> Self {
-        Self { job_repo, technician_repo }
+        Self { job_repo, _technician_repo: technician_repo }
     }
 
     pub async fn execute(&self, job_request_id: Uuid, caller_id: Uuid) -> Result<Vec<JobOffer>, JobError> {
@@ -139,7 +142,11 @@ impl GetJobOffersUseCase {
             .find_job_request_by_id(job_request_id)
             .await?
             .ok_or(JobError::JobNotFound)?;
-        authorize_job_access(&job, caller_id, &self.technician_repo).await?;
+        // Offers are the client's to compare. Competing technicians (and
+        // the winner) used to read every rival's price and name here.
+        if job.client_id != caller_id {
+            return Err(JobError::Unauthorized);
+        }
 
         self.job_repo.find_offers_by_job_id(job_request_id).await
     }

@@ -18,6 +18,10 @@ pub enum AuthError {
     PasswordLoginUnavailable,
     #[error("this email already has a password on Cerca — sign in with it to link Google")]
     LinkRequiresPassword,
+    /// The address belongs to an account bound to another sign-in method
+    /// or another Google account; it is never adopted without the owner.
+    #[error("ya existe una cuenta con este correo; inicia sesión con el método que usaste al crearla")]
+    AccountAlreadyLinked,
     #[error("could not verify that Google account")]
     InvalidProviderToken,
     #[error("that Google account has no verified email address")]

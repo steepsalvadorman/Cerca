@@ -24,7 +24,15 @@ class ServiceRequestDraft {
 
 class ServiceRequestDraftController extends Notifier<ServiceRequestDraft> {
   @override
-  ServiceRequestDraft build() => const ServiceRequestDraft();
+  ServiceRequestDraft build() {
+    // Not auto-disposed: without this, the previous account's address and
+    // job description survived a logout and pre-filled the next account's
+    // request on the same device (security audit run-1).
+    ref.listen(authControllerProvider, (_, next) {
+      if (next.value == null) clear();
+    });
+    return const ServiceRequestDraft();
+  }
 
   void save({
     required String categoryId,

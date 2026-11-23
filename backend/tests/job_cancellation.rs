@@ -125,12 +125,12 @@ async fn create_bidding_job(pool: &PgPool, client_id: Uuid) -> Uuid {
         .id
 }
 
-/// A free `direct` job, which is born `active`.
+/// A direct job, accepted by its technician so it is `active`.
 async fn create_direct_job(pool: &PgPool, client_id: Uuid, technician_profile_id: i32) -> Uuid {
     let job_repo: Arc<dyn backend::features::job::domain::JobRepository> =
         Arc::new(PostgresJobRepository::new(pool.clone()));
 
-    backend::features::job::application::CreateJobUseCase::new(job_repo)
+    let id = backend::features::job::application::CreateJobUseCase::new(job_repo)
         .execute(backend::features::job::application::CreateJobInput {
             client_id,
             technician_profile_id: Some(technician_profile_id),
@@ -142,7 +142,9 @@ async fn create_direct_job(pool: &PgPool, client_id: Uuid, technician_profile_id
         })
         .await
         .unwrap()
-        .id
+        .id;
+    accept_direct_for_test(pool, id).await;
+    id
 }
 
 async fn job_row(pool: &PgPool, job_id: Uuid) -> (String, Option<String>, Option<String>) {
@@ -532,4 +534,16 @@ async fn an_overlong_cancellation_reason_is_truncated_not_rejected(pool: PgPool)
     let (_, stored, _) = job_row(&pool, job_id).await;
     let stored = stored.expect("a reason was given");
     assert_eq!(stored.chars().count(), 300, "the note must be capped");
+}
+
+/// A direct hire waits for the technician since audit run-1; tests that
+/// need a running job accept it the same way the app does (one credit
+/// from the technician's welcome grant).
+async fn accept_direct_for_test(pool: &sqlx::PgPool, job_id: uuid::Uuid) {
+    use backend::features::job::domain::JobRepository as _;
+    let repo = backend::features::job::infrastructure::PostgresJobRepository::new(pool.clone());
+    let mut job = repo.find_job_request_by_id(job_id).await.unwrap().unwrap();
+    let profile = job.technician_profile_id.unwrap();
+    job.accept_direct(profile).unwrap();
+    repo.accept_direct_job(&job).await.unwrap();
 }

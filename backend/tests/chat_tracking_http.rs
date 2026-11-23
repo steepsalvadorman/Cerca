@@ -106,7 +106,7 @@ async fn call(
 /// A `direct` job: free, so it is born `active` with `fee_paid = true`,
 /// which is the state chat and tracking are actually usable in.
 async fn create_active_job(pool: &PgPool, client_id: Uuid, profile_id: i32) -> Uuid {
-    backend::features::job::application::CreateJobUseCase::new(Arc::new(
+    let id = backend::features::job::application::CreateJobUseCase::new(Arc::new(
         PostgresJobRepository::new(pool.clone()),
     ))
     .execute(backend::features::job::application::CreateJobInput {
@@ -120,7 +120,9 @@ async fn create_active_job(pool: &PgPool, client_id: Uuid, profile_id: i32) -> U
     })
     .await
     .unwrap()
-    .id
+    .id;
+    accept_direct_for_test(pool, id).await;
+    id
 }
 
 // ---------------------------------------------------------------------
@@ -537,4 +539,16 @@ async fn the_inbox_leaves_out_strangers_and_cancelled_jobs(pool: PgPool) {
 async fn the_inbox_rejects_anonymous_callers(pool: PgPool) {
     let (status, _) = call(&pool, "GET", "/chats", None, None::<String>).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+/// A direct hire waits for the technician since audit run-1; tests that
+/// need a running job accept it the same way the app does (one credit
+/// from the technician's welcome grant).
+async fn accept_direct_for_test(pool: &sqlx::PgPool, job_id: uuid::Uuid) {
+    use backend::features::job::domain::JobRepository as _;
+    let repo = backend::features::job::infrastructure::PostgresJobRepository::new(pool.clone());
+    let mut job = repo.find_job_request_by_id(job_id).await.unwrap().unwrap();
+    let profile = job.technician_profile_id.unwrap();
+    job.accept_direct(profile).unwrap();
+    repo.accept_direct_job(&job).await.unwrap();
 }

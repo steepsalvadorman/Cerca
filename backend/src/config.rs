@@ -33,6 +33,9 @@ pub struct AppConfig {
     pub culqi_secret_key: Option<String>,
     /// Culqi public key (`pk_…`), handed to the app to create tokens.
     pub culqi_public_key: Option<String>,
+    /// Reverse proxies in front of the server that append to
+    /// X-Forwarded-For (Render: 1). 0 = trust no forwarded header.
+    pub trusted_proxy_hops: usize,
 }
 
 impl AppConfig {
@@ -63,12 +66,17 @@ impl AppConfig {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
+            // Unset means payments are off (503), never simulated: a
+            // forgotten variable must not hand out free credits.
             payments_mode: env::var("PAYMENTS_MODE")
-                .unwrap_or_else(|_| "fake".to_string())
+                .unwrap_or_else(|_| "unconfigured".to_string())
                 .trim()
                 .to_lowercase(),
             culqi_secret_key: non_empty("CULQI_SECRET_KEY"),
             culqi_public_key: non_empty("CULQI_PUBLIC_KEY"),
+            trusted_proxy_hops: non_empty("TRUSTED_PROXY_HOPS")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0),
         }
     }
 
