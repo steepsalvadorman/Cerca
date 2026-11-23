@@ -6,6 +6,7 @@ use serde_json::json;
 use crate::features::auth::domain::AuthError;
 use crate::features::chat::domain::ChatError;
 use crate::features::client::domain::ClientError;
+use crate::features::credits::domain::CreditError;
 use crate::features::job::domain::JobError;
 use crate::features::technician::domain::TechnicianError;
 use crate::features::tracking::domain::TrackingError;
@@ -24,6 +25,7 @@ pub enum AppError {
     Job(JobError),
     Chat(ChatError),
     Tracking(TrackingError),
+    Credit(CreditError),
     /// A request that is well-formed JSON but whose *contents* are not
     /// acceptable: a blank title, an address longer than the column is
     /// meant to hold, a value outside a known set.
@@ -64,6 +66,12 @@ impl From<JobError> for AppError {
 impl From<ChatError> for AppError {
     fn from(error: ChatError) -> Self {
         AppError::Chat(error)
+    }
+}
+
+impl From<CreditError> for AppError {
+    fn from(error: CreditError) -> Self {
+        AppError::Credit(error)
     }
 }
 
@@ -155,6 +163,8 @@ impl IntoResponse for AppError {
             // message says.
             AppError::Job(JobError::ConcurrentModification) => (StatusCode::CONFLICT, self.to_string()),
             AppError::Job(JobError::PaymentFailed) => (StatusCode::PAYMENT_REQUIRED, self.to_string()),
+            // 402: the app keys its "compra créditos" prompt on this.
+            AppError::Job(JobError::InsufficientCredits) => (StatusCode::PAYMENT_REQUIRED, self.to_string()),
             AppError::Job(JobError::PaymentUnavailable) => {
                 tracing::error!("payment gateway is unavailable — check PAYMENTS_MODE");
                 (StatusCode::SERVICE_UNAVAILABLE, self.to_string())
@@ -185,6 +195,21 @@ impl IntoResponse for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
             }
 
+            AppError::Credit(CreditError::NotATechnician) => (StatusCode::FORBIDDEN, self.to_string()),
+            AppError::Credit(CreditError::UnknownPack) => (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()),
+            AppError::Credit(CreditError::PurchaseConflict) => (StatusCode::CONFLICT, self.to_string()),
+            // The PSP's own words ("fondos insuficientes") are what the
+            // technician needs to fix it, so they go through verbatim.
+            AppError::Credit(CreditError::PaymentDeclined(_)) => (StatusCode::PAYMENT_REQUIRED, self.to_string()),
+            AppError::Credit(CreditError::PaymentUnavailable) => {
+                tracing::error!("payment gateway is unavailable — check PAYMENTS_MODE / CULQI_SECRET_KEY");
+                (StatusCode::SERVICE_UNAVAILABLE, self.to_string())
+            }
+            AppError::Credit(CreditError::Repository(_)) => {
+                tracing::error!(error = %self, "credits internal error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
+            }
+
             // The message is the point here: it names the field and what
             // is wrong with it, so the app can show it next to the input.
             AppError::Validation(message) => {
@@ -205,6 +230,7 @@ impl std::fmt::Display for AppError {
             AppError::Job(e) => write!(f, "{e}"),
             AppError::Chat(e) => write!(f, "{e}"),
             AppError::Tracking(e) => write!(f, "{e}"),
+            AppError::Credit(e) => write!(f, "{e}"),
             AppError::Validation(message) => write!(f, "{message}"),
         }
     }

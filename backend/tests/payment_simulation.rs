@@ -40,6 +40,8 @@ fn test_state(pool: PgPool) -> AppState {
         client_repository: Arc::new(PostgresClientRepository::new(pool.clone())),
         job_repository: Arc::new(PostgresJobRepository::new(pool.clone())),
         payment_gateway: Arc::new(FakePaymentGateway),
+        credit_repository: Arc::new(backend::features::credits::infrastructure::PostgresCreditRepository::new(pool.clone())),
+        payments_public: backend::features::credits::application::PaymentsPublicConfig { mode: "fake".to_string(), culqi_public_key: None },
         chat_repository: Arc::new(PostgresChatRepository::new(pool.clone())),
         tracking_repository: Arc::new(PostgresTrackingRepository::new(pool)),
         object_storage: Arc::new(UnconfiguredObjectStorage),
@@ -146,55 +148,8 @@ async fn bidding_job_ready_to_pay(pool: &PgPool) -> (Uuid, Uuid) {
     (job.id, client_id)
 }
 
-#[sqlx::test(migrations = "./migrations")]
-async fn the_fake_gateway_records_a_simulated_capture(pool: PgPool) {
-    let (job_id, client_id) = bidding_job_ready_to_pay(&pool).await;
-
-    let (status, body) = pay(&pool, job_id, client_id, "Tarjeta").await;
-
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert!(body.contains(r#""simulated":true"#), "{body}");
-    assert!(body.contains("fake-"), "{body}");
-
-    let job = PostgresJobRepository::new(pool.clone())
-        .find_job_request_by_id(job_id)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(job.fee_paid);
-    assert!(job.payment_done);
-    assert_eq!(job.payment_method.as_deref(), Some("card"));
-    assert_eq!(job.status.as_str(), "active");
-
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM job_payments WHERE job_request_id = $1 AND simulated = TRUE",
-    )
-    .bind(job_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(count.0, 1);
-}
-
-#[sqlx::test(migrations = "./migrations")]
-async fn paying_twice_is_idempotent_and_keeps_one_payment_row(pool: PgPool) {
-    let (job_id, client_id) = bidding_job_ready_to_pay(&pool).await;
-
-    let (first, _) = pay(&pool, job_id, client_id, "Efectivo").await;
-    let (second, body) = pay(&pool, job_id, client_id, "Efectivo").await;
-
-    assert_eq!(first, StatusCode::OK);
-    assert_eq!(second, StatusCode::OK, "{body}");
-
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM job_payments WHERE job_request_id = $1",
-    )
-    .bind(job_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(count.0, 1);
-}
+// Fee *captures* moved to technician credit packs (migration 0016);
+// see tests/credit_purchases.rs.
 
 #[sqlx::test(migrations = "./migrations")]
 async fn an_unknown_payment_method_is_rejected(pool: PgPool) {

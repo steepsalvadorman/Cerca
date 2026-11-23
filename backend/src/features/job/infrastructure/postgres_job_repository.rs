@@ -6,6 +6,8 @@ use uuid::Uuid;
 use crate::features::job::domain::{
     JobError, JobOffer, JobPaymentRecord, JobRequest, JobRepository, JobStatus,
 };
+use crate::features::credits::domain::Wallet;
+use crate::features::credits::infrastructure::read_wallet;
 use crate::features::technician::domain::TechnicianProfile;
 
 #[derive(sqlx::FromRow)]
@@ -108,6 +110,54 @@ impl PostgresJobRepository {
     }
 }
 
+
+/// The optimistic-concurrency UPDATE shared by `save_job_request` and
+/// `assign_winner`: conditional on the version the caller read, so a
+/// stale writer matches no rows instead of overwriting (GAP-07).
+fn update_job_query(job: &JobRequest) -> sqlx::query::Query<'_, sqlx::Postgres, sqlx::postgres::PgArguments> {
+    sqlx::query(
+        "UPDATE job_requests SET \
+         technician_profile_id = $2, \
+         tech_team_id = $3, \
+         status = $4, \
+         timeline_step = $5, \
+         fee_paid = $6, \
+         payment_method = $7, \
+         payment_done = $8, \
+         agreed_price = $9, \
+         rating = $10, \
+         comment = $11, \
+         cancelled_at = $12, \
+         cancelled_by = $13, \
+         cancellation_reason = $14, \
+         title = $16, \
+         address = $17, \
+         version = version + 1 \
+         WHERE id = $1 AND version = $15",
+    )
+    .bind(job.id)
+    .bind(job.technician_profile_id)
+    .bind(job.tech_team_id)
+    .bind(job.status.as_str())
+    .bind(job.timeline_step)
+    .bind(job.fee_paid)
+    .bind(&job.payment_method)
+    .bind(job.payment_done)
+    .bind(job.agreed_price)
+    .bind(job.rating)
+    .bind(&job.comment)
+    .bind(job.cancelled_at)
+    .bind(job.cancelled_by)
+    .bind(&job.cancellation_reason)
+    .bind(job.version)
+    // `title` and `address` were write-once: the INSERT set them and
+    // every later UPDATE ignored them, so an edit through any future
+    // use case would have been silently dropped. Included so the
+    // repository persists the whole aggregate it is handed.
+    .bind(&job.title)
+    .bind(&job.address)
+}
+
 #[async_trait]
 impl JobRepository for PostgresJobRepository {
     async fn create_job_request(&self, job: &JobRequest) -> Result<(), JobError> {
@@ -166,55 +216,10 @@ impl JobRepository for PostgresJobRepository {
     }
 
     async fn save_job_request(&self, job: &JobRequest) -> Result<(), JobError> {
-        // The write is conditional on the version the caller read: if
-        // another request got there first, this matches no rows and the
-        // change is refused rather than silently overwriting theirs
-        // (GAP-07). `version = version + 1` moves the row on for the next
-        // writer.
-        let result = sqlx::query(
-            "UPDATE job_requests SET \
-             technician_profile_id = $2, \
-             tech_team_id = $3, \
-             status = $4, \
-             timeline_step = $5, \
-             fee_paid = $6, \
-             payment_method = $7, \
-             payment_done = $8, \
-             agreed_price = $9, \
-             rating = $10, \
-             comment = $11, \
-             cancelled_at = $12, \
-             cancelled_by = $13, \
-             cancellation_reason = $14, \
-             title = $16, \
-             address = $17, \
-             version = version + 1 \
-             WHERE id = $1 AND version = $15",
-        )
-        .bind(job.id)
-        .bind(job.technician_profile_id)
-        .bind(job.tech_team_id)
-        .bind(job.status.as_str())
-        .bind(job.timeline_step)
-        .bind(job.fee_paid)
-        .bind(&job.payment_method)
-        .bind(job.payment_done)
-        .bind(job.agreed_price)
-        .bind(job.rating)
-        .bind(&job.comment)
-        .bind(job.cancelled_at)
-        .bind(job.cancelled_by)
-        .bind(&job.cancellation_reason)
-        .bind(job.version)
-        // `title` and `address` were write-once: the INSERT set them and
-        // every later UPDATE ignored them, so an edit through any future
-        // use case would have been silently dropped. Included so the
-        // repository persists the whole aggregate it is handed.
-        .bind(&job.title)
-        .bind(&job.address)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| JobError::Repository(e.to_string()))?;
+        let result = update_job_query(job)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| JobError::Repository(e.to_string()))?;
 
         if result.rows_affected() == 0 {
             // Either someone else moved the job on, or it is gone. Both
@@ -224,6 +229,41 @@ impl JobRepository for PostgresJobRepository {
         }
 
         Ok(())
+    }
+
+    async fn assign_winner(&self, job: &JobRequest) -> Result<(), JobError> {
+        let technician_profile_id = job
+            .technician_profile_id
+            .ok_or_else(|| JobError::Repository("assign_winner without a technician".to_string()))?;
+        let repo_err = |e: sqlx::Error| JobError::Repository(e.to_string());
+
+        // The job starting and the winner paying their credit are one
+        // fact: either both are recorded or neither is.
+        let mut tx = self.pool.begin().await.map_err(repo_err)?;
+
+        let result = update_job_query(job).execute(&mut *tx).await.map_err(repo_err)?;
+        if result.rows_affected() == 0 {
+            return Err(JobError::ConcurrentModification);
+        }
+
+        sqlx::query(
+            "INSERT INTO credit_ledger (technician_profile_id, delta, reason, job_request_id) \
+             VALUES ($1, -1, 'job_won', $2) \
+             ON CONFLICT (job_request_id) WHERE reason = 'job_won' DO NOTHING",
+        )
+        .bind(technician_profile_id)
+        .bind(job.id)
+        .execute(&mut *tx)
+        .await
+        .map_err(repo_err)?;
+
+        tx.commit().await.map_err(repo_err)
+    }
+
+    async fn technician_wallet(&self, technician_profile_id: i32) -> Result<Wallet, JobError> {
+        read_wallet(&self.pool, technician_profile_id)
+            .await
+            .map_err(|e| JobError::Repository(e.to_string()))
     }
 
     async fn find_offers_by_job_id(&self, job_request_id: Uuid) -> Result<Vec<JobOffer>, JobError> {

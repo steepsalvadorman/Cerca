@@ -73,7 +73,7 @@ impl PayFeeUseCase {
                     .await
                     .map_err(|error| match error {
                         PaymentError::Unavailable => JobError::PaymentUnavailable,
-                        PaymentError::Declined | PaymentError::Internal(_) => JobError::PaymentFailed,
+                        PaymentError::Declined | PaymentError::Rejected { .. } | PaymentError::Internal(_) => JobError::PaymentFailed,
                     })?,
             )
         } else {

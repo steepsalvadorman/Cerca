@@ -13,6 +13,7 @@ import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../application/active_job_controller.dart';
+import '../../application/client_history_controller.dart';
 import '../../application/job_session_controller.dart';
 import '../../application/offers_controller.dart';
 import '../../domain/job_offer.dart';
@@ -31,12 +32,20 @@ class _BiddingScreenState extends ConsumerState<BiddingScreen> {
     if (_choosing) return;
     setState(() => _choosing = true);
     try {
-      await ref.read(activeJobControllerProvider.notifier).chooseOffer(offer.id);
-      final result = ref.read(activeJobControllerProvider);
-      if (result.hasError) throw result.error!;
+      // Straight to the repository: this screen does not listen to the
+      // (auto-disposed) active-job controller, so calling through it
+      // disposed it mid-request and reported a failure for a choice the
+      // backend had already recorded.
+      final jobId = ref.read(jobSessionControllerProvider);
+      if (jobId == null) throw const ApiException(message: 'No se encontró la solicitud.');
+      await ref.read(jobRepositoryProvider).chooseOffer(jobId, offer.id);
+      ref.invalidate(activeJobControllerProvider);
       ref.read(cercaControllerProvider.notifier).chooseOffer();
       if (!mounted) return;
-      context.go(RoutePaths.jobFee);
+      // Nothing to pay: picking the offer starts the job (the technician
+      // pays Cerca with a credit), so straight to tracking.
+      ref.invalidate(clientHistoryProvider);
+      context.go(RoutePaths.tracking);
     } catch (e) {
       if (!mounted) return;
       final message = e is ApiException ? e.message : 'No se pudo elegir esta oferta.';
@@ -139,7 +148,7 @@ class _BiddingScreenState extends ConsumerState<BiddingScreen> {
                           onChoose: _choosing ? null : () => _choose(offer),
                         ),
                     Text(
-                      'Al elegir una oferta, Cerca cobra S/ 4 por la licitación. El pago del trabajo se acuerda directamente con el técnico.',
+                      'Elegir una oferta es gratis. El pago del trabajo se acuerda directamente con el técnico.',
                       textAlign: TextAlign.center,
                       style: CercaText.sora(fontSize: 11, color: AppColors.cercaTextMuted, height: 1.4),
                     ),

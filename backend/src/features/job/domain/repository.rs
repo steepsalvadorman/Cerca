@@ -5,12 +5,18 @@ use super::errors::JobError;
 use super::job_offer::JobOffer;
 use super::job_payment::JobPaymentRecord;
 use super::job_request::JobRequest;
+use crate::features::credits::domain::Wallet;
 
 #[async_trait]
 pub trait JobRepository: Send + Sync {
     async fn create_job_request(&self, job: &JobRequest) -> Result<(), JobError>;
     async fn find_job_request_by_id(&self, id: Uuid) -> Result<Option<JobRequest>, JobError>;
     async fn save_job_request(&self, job: &JobRequest) -> Result<(), JobError>;
+    /// Saves a job whose auction was just won *and* debits the winner one
+    /// credit, atomically. Retrying debits nothing more.
+    async fn assign_winner(&self, job: &JobRequest) -> Result<(), JobError>;
+    /// The technician's credits (see `credits::Wallet`).
+    async fn technician_wallet(&self, technician_profile_id: i32) -> Result<Wallet, JobError>;
     async fn find_offers_by_job_id(&self, job_request_id: Uuid) -> Result<Vec<JobOffer>, JobError>;
     async fn find_offer_by_id(&self, id: i32) -> Result<Option<JobOffer>, JobError>;
     async fn add_job_offer(&self, job_request_id: Uuid, technician_profile_id: i32, price: i32, eta: String) -> Result<(), JobError>;

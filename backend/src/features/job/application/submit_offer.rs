@@ -95,6 +95,12 @@ impl SubmitOfferUseCase {
             return Err(JobError::OfferAlreadySubmitted);
         }
 
+        // Winning costs one credit, and every open offer may win: an offer
+        // is only accepted while a credit is free to back it.
+        if !self.job_repo.technician_wallet(profile.id).await?.can_bid() {
+            return Err(JobError::InsufficientCredits);
+        }
+
         self.job_repo
             .add_job_offer(input.job_request_id, profile.id, input.price, eta.to_string())
             .await?;

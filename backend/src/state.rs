@@ -5,6 +5,8 @@ use crate::features::auth::domain::UserRepository;
 use crate::features::technician::application::ObjectStorage;
 use crate::features::technician::domain::TechnicianRepository;
 use crate::features::client::domain::ClientRepository;
+use crate::features::credits::application::PaymentsPublicConfig;
+use crate::features::credits::domain::CreditRepository;
 use crate::features::job::application::PaymentGateway;
 use crate::features::job::domain::JobRepository;
 use crate::features::chat::domain::ChatRepository;
@@ -23,6 +25,8 @@ pub struct AppState {
     pub client_repository: Arc<dyn ClientRepository>,
     pub job_repository: Arc<dyn JobRepository>,
     pub payment_gateway: Arc<dyn PaymentGateway>,
+    pub credit_repository: Arc<dyn CreditRepository>,
+    pub payments_public: PaymentsPublicConfig,
     pub chat_repository: Arc<dyn ChatRepository>,
     pub tracking_repository: Arc<dyn TrackingRepository>,
     pub object_storage: Arc<dyn ObjectStorage>,

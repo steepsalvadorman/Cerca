@@ -11,8 +11,10 @@ use backend::features::technician::infrastructure::{
     PostgresTechnicianRepository, S3ObjectStorage, UnconfiguredObjectStorage,
 };
 use backend::features::client::infrastructure::PostgresClientRepository;
+use backend::features::credits::application::PaymentsPublicConfig;
+use backend::features::credits::infrastructure::PostgresCreditRepository;
 use backend::features::job::infrastructure::{
-    FakePaymentGateway, PostgresJobRepository, UnconfiguredPaymentGateway,
+    CulqiPaymentGateway, FakePaymentGateway, PostgresJobRepository, UnconfiguredPaymentGateway,
 };
 use backend::features::chat::infrastructure::PostgresChatRepository;
 use backend::features::tracking::infrastructure::PostgresTrackingRepository;
@@ -80,6 +82,9 @@ async fn main() {
         }
     }
 
+    // Read before `config.storage` is moved out below.
+    let is_production = config.is_production();
+
     let object_storage: Arc<dyn ObjectStorage> = match config.storage {
         Some(storage) => Arc::new(S3ObjectStorage::new(storage)),
         None => {
@@ -89,14 +94,21 @@ async fn main() {
     };
 
     let payment_gateway: Arc<dyn backend::features::job::application::PaymentGateway> =
-        if config.payments_mode == "fake" {
-            Arc::new(FakePaymentGateway)
-        } else {
-            tracing::warn!(
-                "PAYMENTS_MODE={} — fee payments will answer 503 until a real adapter is wired",
-                config.payments_mode
-            );
-            Arc::new(UnconfiguredPaymentGateway)
+        match (config.payments_mode.as_str(), &config.culqi_secret_key, &config.culqi_public_key) {
+            ("fake", _, _) => Arc::new(FakePaymentGateway),
+            ("culqi", Some(secret), Some(_)) => {
+                if is_production && secret.starts_with("sk_test_") {
+                    panic!("refusing to start with APP_ENV=production and a Culqi *test* secret key");
+                }
+                Arc::new(CulqiPaymentGateway::new(secret.clone()))
+            }
+            ("culqi", _, _) => panic!(
+                "PAYMENTS_MODE=culqi needs CULQI_SECRET_KEY and CULQI_PUBLIC_KEY"
+            ),
+            (mode, _, _) => {
+                tracing::warn!("PAYMENTS_MODE={mode} — credit purchases will answer 503");
+                Arc::new(UnconfiguredPaymentGateway)
+            }
         };
 
     let identity_verifier: Arc<dyn IdentityVerifier> = if config.google_client_ids.is_empty() {
@@ -115,6 +127,11 @@ async fn main() {
         client_repository: Arc::new(PostgresClientRepository::new(pool.clone())),
         job_repository: Arc::new(PostgresJobRepository::new(pool.clone())),
         payment_gateway,
+        credit_repository: Arc::new(PostgresCreditRepository::new(pool.clone())),
+        payments_public: PaymentsPublicConfig {
+            mode: config.payments_mode.clone(),
+            culqi_public_key: config.culqi_public_key.clone(),
+        },
         chat_repository: Arc::new(PostgresChatRepository::new(pool.clone())),
         tracking_repository: Arc::new(PostgresTrackingRepository::new(pool)),
         object_storage,

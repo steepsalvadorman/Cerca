@@ -36,6 +36,10 @@ pub enum JobError {
     #[error("el trabajo cambió mientras lo actualizabas — vuelve a intentarlo")]
     ConcurrentModification,
 
+    /// Every credit the technician has is already held by offers still
+    /// waiting on open auctions (see `credits::Wallet`).
+    #[error("no tienes créditos disponibles: compra un paquete para seguir ofertando")]
+    InsufficientCredits,
     #[error("el pago no pudo completarse")]
     PaymentFailed,
 

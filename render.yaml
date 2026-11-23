@@ -60,9 +60,14 @@ services:
         sync: false
       - key: S3_BUCKET
         sync: false
-      # Simulated fee capture until a real PSP is wired. Safe for staging;
-      # do NOT combine with APP_ENV=production (the server refuses to boot).
+      # `fake` simulates credit purchases (staging only — the server refuses
+      # to boot with APP_ENV=production). Switch to `culqi` and fill both
+      # keys below to charge for real.
       - key: PAYMENTS_MODE
         value: fake
+      - key: CULQI_SECRET_KEY
+        sync: false
+      - key: CULQI_PUBLIC_KEY
+        sync: false
     # PORT is deliberately absent: Render injects it, and
     # `AppConfig::from_env` already reads it.

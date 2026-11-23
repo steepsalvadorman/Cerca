@@ -47,11 +47,13 @@ impl ChooseOfferUseCase {
             return Err(JobError::InvalidStatusTransition);
         }
 
-        // Set the technician profile ID and the accepted price on the job
-        job.technician_profile_id = Some(offer.technician_profile_id);
-        job.agreed_price = Some(offer.price);
-
-        self.job_repo.save_job_request(&job).await?;
+        // The job starts with its technician and price, and the winner
+        // pays one credit — atomically, so a job never starts unpaid nor
+        // is a credit taken for a job that did not start. Submitting the
+        // offer already required a free credit, so the client is never
+        // refused the offer they picked.
+        job.assign_winner(offer.technician_profile_id, offer.price)?;
+        self.job_repo.assign_winner(&job).await?;
         Ok(())
     }
 }
