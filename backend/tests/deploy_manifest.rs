@@ -50,6 +50,9 @@ const CONFIG_VARS: &[ConfigVar] = &[
     ConfigVar { name: "S3_SECRET_ACCESS_KEY", optional: true, read_in: "src/config.rs" },
     ConfigVar { name: "S3_BUCKET", optional: true, read_in: "src/config.rs" },
     ConfigVar { name: "PAYMENTS_MODE", optional: true, read_in: "src/config.rs" },
+    // Only needed with PAYMENTS_MODE=culqi (main refuses to boot without them then).
+    ConfigVar { name: "CULQI_SECRET_KEY", optional: true, read_in: "src/config.rs" },
+    ConfigVar { name: "CULQI_PUBLIC_KEY", optional: true, read_in: "src/config.rs" },
 ];
 
 fn render_manifest() -> String {
