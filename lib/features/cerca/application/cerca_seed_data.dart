@@ -26,9 +26,9 @@ class CercaSeedData {
     Category(id: 'carpinteria', label: 'Carpintería', mono: 'CA'),
     Category(id: 'pintura', label: 'Pintura', mono: 'PI'),
     Category(id: 'cerrajeria', label: 'Cerrajería', mono: 'CE'),
-    Category(id: 'electrodomesticos', label: 'Electrodom.', mono: 'ED'),
+    Category(id: 'electrodomesticos', label: 'Electrodomésticos', shortLabel: 'Electrodom.', mono: 'ED'),
     Category(id: 'jardineria', label: 'Jardinería', mono: 'JA'),
-    Category(id: 'climatizacion', label: 'Climatiz.', mono: 'CL'),
+    Category(id: 'climatizacion', label: 'Climatización', shortLabel: 'Climatiz.', mono: 'CL'),
   ];
 
   static const List<Category> projectCategories = [
