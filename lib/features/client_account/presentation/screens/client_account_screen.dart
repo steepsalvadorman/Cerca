@@ -216,7 +216,7 @@ class ClientAccountScreen extends ConsumerWidget {
                       // Cerca never charges for the work itself; say what a
                       // saved card is for, so it doesn't read as a contradiction.
                       Text(
-                        'Solo para la comisión de licitación (S/ 4). El trabajo se paga directo al técnico.',
+                        'Cerca no cobra a los clientes. Puedes guardar aquí cómo prefieres pagarle al técnico.',
                         style: CercaText.sora(
                           fontSize: 12,
                           color: AppColors.cercaTextSecondary,

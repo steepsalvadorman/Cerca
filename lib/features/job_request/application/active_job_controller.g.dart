@@ -40,7 +40,7 @@ final class ActiveJobControllerProvider
 }
 
 String _$activeJobControllerHash() =>
-    r'f26eea60a7885fd6772f2bcfc4dce33a2aae5220';
+    r'b1cc3a04a6d9c66f05c9286b1e6c6d1bb8e0fd5f';
 
 /// The job the client is currently walking through, resolved from
 /// [JobSessionController]'s id. `null` while no job has been created yet.

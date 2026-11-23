@@ -57,8 +57,9 @@ class CercaController extends _$CercaController {
 
   void setSort(SortBy sort) => state = state.copyWith(sortBy: sort);
 
+  /// The client owes nothing for an auction (the winner pays a credit).
   void chooseOffer() =>
-      state = state.copyWith(feeType: FeeType.bidding, feePaid: false);
+      state = state.copyWith(feeType: FeeType.bidding, feePaid: true);
 
   void acceptDirect() =>
       state = state.copyWith(feeType: FeeType.direct, feePaid: true);

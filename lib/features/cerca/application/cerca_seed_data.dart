@@ -125,9 +125,9 @@ class CercaSeedData {
       desc: 'Contactar directamente con un técnico es gratis. El trabajo se acuerda y se paga directamente al profesional.',
     ),
     FeeType.bidding: FeeConfig(
-      title: 'Tarifa de licitación',
-      amount: 4,
-      desc: 'Cerca cobra una tarifa por gestionar la licitación entre varios técnicos verificados. El trabajo se paga directamente al técnico elegido.',
+      title: 'Licitación gratuita',
+      amount: 0,
+      desc: 'Recibir y elegir ofertas de técnicos verificados es gratis. El trabajo se paga directamente al técnico elegido.',
     ),
     FeeType.project: FeeConfig(
       title: 'Solicitud de proyecto gratuita',
