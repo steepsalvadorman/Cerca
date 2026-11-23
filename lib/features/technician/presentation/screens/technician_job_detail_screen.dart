@@ -70,6 +70,40 @@ class _TechnicianJobDetailScreenState extends ConsumerState<TechnicianJobDetailS
     }
   }
 
+  Future<void> _respondDirect({required bool accept}) async {
+    final jobId = ref.read(jobSessionControllerProvider);
+    if (jobId == null || _advancing) return;
+    setState(() => _advancing = true);
+    try {
+      final repo = ref.read(jobRepositoryProvider);
+      if (accept) {
+        await repo.acceptDirect(jobId);
+      } else {
+        await repo.declineDirect(jobId);
+      }
+      ref.invalidate(activeJobControllerProvider);
+      ref.invalidate(creditsOverviewProvider);
+      ref.invalidate(technicianJobsControllerProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(accept ? 'Trabajo aceptado. Se descontó 1 crédito.' : 'Solicitud rechazada.'),
+      ));
+      if (!accept) context.go(RoutePaths.technicianJobs);
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException ? e.message : 'No se pudo responder la solicitud.';
+      final outOfCredits = e is ApiException && e.statusCode == 402;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(message),
+        action: outOfCredits
+            ? SnackBarAction(label: 'Comprar', onPressed: () => context.push(RoutePaths.techCredits))
+            : null,
+      ));
+    } finally {
+      if (mounted) setState(() => _advancing = false);
+    }
+  }
+
   Future<void> _advance() async {
     if (_advancing) return;
     setState(() => _advancing = true);
@@ -128,6 +162,8 @@ class _TechnicianJobDetailScreenState extends ConsumerState<TechnicianJobDetailS
 
     final isAssignedToMe = myProfile != null && job.technicianProfileId == myProfile.id;
     final isOpenForBid = job.jobKind == 'bidding' && job.technicianProfileId == null;
+    // A direct hire waits for this technician's answer before it starts.
+    final awaitsMyAnswer = isAssignedToMe && job.jobKind == 'direct' && job.isPending;
 
     // The bottom button is taken by "Avanzar estado" while the job is under
     // way, which is exactly when the client most needs to be reachable —
@@ -178,7 +214,7 @@ class _TechnicianJobDetailScreenState extends ConsumerState<TechnicianJobDetailS
                           _Row('Estado', job.statusLabel),
                           const SizedBox(height: 6),
                           _Row('Tipo', job.kindLabel),
-                          if (isAssignedToMe) ...[
+                          if (isAssignedToMe && !job.isPending) ...[
                             const SizedBox(height: 6),
                             _Row('Progreso', CercaSeedData.timelineSteps.firstWhere((s) => s.step == job.timelineStep, orElse: () => CercaSeedData.timelineSteps.first).label),
                           ],
@@ -200,6 +236,22 @@ class _TechnicianJobDetailScreenState extends ConsumerState<TechnicianJobDetailS
                       TextField(
                         controller: _etaController,
                         decoration: const InputDecoration(labelText: 'Cuándo puedes ir', hintText: 'Ej.: Hoy, 16:00'),
+                      ),
+                    ] else if (awaitsMyAnswer) ...[
+                      Text('Un cliente te pidió este trabajo directamente.', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Si lo aceptas se descuenta 1 crédito y el cliente podrá coordinar contigo. Rechazarlo es gratis.',
+                        style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary, height: 1.4),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _advancing ? null : () => _respondDirect(accept: false),
+                          style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                          child: const Text('Rechazar solicitud'),
+                        ),
                       ),
                     ] else if (isAssignedToMe) ...[
                       Text('Este trabajo está asignado a ti.', style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary)),
@@ -247,7 +299,13 @@ class _TechnicianJobDetailScreenState extends ConsumerState<TechnicianJobDetailS
                 ),
               ),
             ),
-            if (isOpenForBid)
+            if (awaitsMyAnswer)
+              PrimaryActionButton(
+                label: _advancing ? 'Enviando…' : 'Aceptar trabajo · 1 crédito',
+                enabled: !_advancing,
+                onTap: () => _respondDirect(accept: true),
+              )
+            else if (isOpenForBid)
               PrimaryActionButton(
                 label: _submitting ? 'Enviando…' : 'Enviar oferta',
                 enabled: !_submitting,

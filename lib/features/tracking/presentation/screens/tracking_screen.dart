@@ -115,6 +115,28 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                               ),
                       ),
                     ),
+                    if (job != null && job.jobKind == 'direct' && job.isPending) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.cercaWarnBg,
+                          border: Border.all(color: AppColors.cercaWarnBorder),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Esperando que $providerName acepte tu solicitud. Te avisaremos aquí cuando responda.',
+                          style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaWarnText, height: 1.4),
+                        ),
+                      ),
+                    ] else if (job != null && job.isCancelled) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Esta solicitud fue cancelada${job.jobKind == 'direct' ? ' o el técnico no pudo tomarla' : ''}. Puedes pedir a otro técnico desde Inicio.',
+                        style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary, height: 1.4),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     Row(
                       children: [
