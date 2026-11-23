@@ -13,7 +13,8 @@ use backend::features::job::application::{
     AdvanceProgressUseCase, ChooseOfferInput, ChooseOfferUseCase, CreateJobInput, CreateJobUseCase,
     PayFeeInput, PayFeeUseCase, RateJobInput, RateJobUseCase, SubmitOfferInput, SubmitOfferUseCase,
 };
-use backend::features::job::domain::JobRepository;
+use backend::features::credits::domain::WELCOME_CREDITS;
+use backend::features::job::domain::{JobError, JobRepository};
 use backend::features::job::infrastructure::{FakePaymentGateway, PostgresJobRepository};
 use backend::features::technician::domain::TechnicianRepository;
 use backend::features::technician::infrastructure::PostgresTechnicianRepository;
@@ -61,8 +62,10 @@ async fn creating_a_job_computes_the_fee_server_side(pool: PgPool) {
         .await
         .unwrap();
 
-    // S/ 4 is the only launch fee and is owned by the backend.
-    assert_eq!(job.fee_amount, 4);
+    // The client pays nothing (migration 0016): the technician pays a
+    // credit when they win. Still owned by the backend, never the app.
+    assert_eq!(job.fee_amount, 0);
+    assert!(job.fee_paid);
     assert!(job.mobility_included); // defaults to true when not specified
     assert_eq!(job.status.as_str(), "pending");
 }
@@ -271,13 +274,13 @@ async fn rating_a_job_updates_the_technicians_average(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn paying_a_bidding_fee_records_the_transaction(pool: PgPool) {
+async fn picking_an_offer_starts_the_job_and_debits_the_winner_one_credit(pool: PgPool) {
     let job_repo: Arc<dyn JobRepository> = Arc::new(PostgresJobRepository::new(pool.clone()));
     let tech_repo: Arc<dyn TechnicianRepository> = Arc::new(PostgresTechnicianRepository::new(pool.clone()));
 
     let client_id = create_user(&pool, "client").await;
     let tech_user_id = create_user(&pool, "technician").await;
-    create_technician_profile(&pool, tech_user_id).await;
+    let tech_profile_id = create_technician_profile(&pool, tech_user_id).await;
 
     let job = CreateJobUseCase::new(job_repo.clone())
         .execute(CreateJobInput {
@@ -291,8 +294,6 @@ async fn paying_a_bidding_fee_records_the_transaction(pool: PgPool) {
         })
         .await
         .unwrap();
-    assert!(!job.fee_paid);
-    assert!(!job.payment_done);
     assert_eq!(job.status.as_str(), "pending");
 
     SubmitOfferUseCase::new(job_repo.clone(), tech_repo.clone())
@@ -304,20 +305,73 @@ async fn paying_a_bidding_fee_records_the_transaction(pool: PgPool) {
         })
         .await
         .unwrap();
+
+    // Welcome credits, one of them held by the open offer.
+    let wallet = job_repo.technician_wallet(tech_profile_id).await.unwrap();
+    assert_eq!((wallet.balance, wallet.reserved), (WELCOME_CREDITS as i64, 1));
+
     let offers = job_repo.find_offers_by_job_id(job.id).await.unwrap();
-    ChooseOfferUseCase::new(job_repo.clone())
+    let choose = ChooseOfferUseCase::new(job_repo.clone());
+    choose
         .execute(ChooseOfferInput { job_request_id: job.id, client_id, offer_id: offers[0].id })
         .await
         .unwrap();
 
+    let started = job_repo.find_job_request_by_id(job.id).await.unwrap().unwrap();
+    assert_eq!(started.status.as_str(), "active");
+    assert_eq!(started.timeline_step, 0);
+    assert_eq!(started.technician_profile_id, Some(tech_profile_id));
+
+    let wallet = job_repo.technician_wallet(tech_profile_id).await.unwrap();
+    assert_eq!((wallet.balance, wallet.reserved), (WELCOME_CREDITS as i64 - 1, 0));
+
+    // The client paying is a harmless no-op now: nothing is owed.
     PayFeeUseCase::new(job_repo.clone(), Arc::new(FakePaymentGateway))
         .execute(PayFeeInput { job_request_id: job.id, client_id, payment_method: "card".to_string() })
         .await
         .unwrap();
+    let wallet = job_repo.technician_wallet(tech_profile_id).await.unwrap();
+    assert_eq!(wallet.balance, WELCOME_CREDITS as i64 - 1, "no second debit");
+}
 
-    let after_payment = job_repo.find_job_request_by_id(job.id).await.unwrap().unwrap();
-    assert!(after_payment.fee_paid);
-    assert!(after_payment.payment_done);
-    assert_eq!(after_payment.status.as_str(), "active");
-    assert_eq!(after_payment.timeline_step, 0);
+#[sqlx::test(migrations = "./migrations")]
+async fn a_technician_without_free_credits_cannot_bid(pool: PgPool) {
+    let job_repo: Arc<dyn JobRepository> = Arc::new(PostgresJobRepository::new(pool.clone()));
+    let tech_repo: Arc<dyn TechnicianRepository> = Arc::new(PostgresTechnicianRepository::new(pool.clone()));
+
+    let client_id = create_user(&pool, "client").await;
+    let tech_user_id = create_user(&pool, "technician").await;
+    create_technician_profile(&pool, tech_user_id).await;
+
+    let mut results = Vec::new();
+    for _ in 0..=WELCOME_CREDITS {
+        let job = CreateJobUseCase::new(job_repo.clone())
+            .execute(CreateJobInput {
+                client_id,
+                technician_profile_id: None,
+                tech_team_id: None,
+                job_kind: "bidding".to_string(),
+                title: None,
+                address: None,
+                mobility_included: None,
+            })
+            .await
+            .unwrap();
+        results.push(
+            SubmitOfferUseCase::new(job_repo.clone(), tech_repo.clone())
+                .execute(SubmitOfferInput {
+                    job_request_id: job.id,
+                    technician_user_id: tech_user_id,
+                    price: 100,
+                    eta: "Hoy".to_string(),
+                })
+                .await,
+        );
+    }
+
+    // One open offer per welcome credit; the next is refused, so every
+    // offer that wins can always be paid for.
+    let (accepted, refused) = results.split_at(WELCOME_CREDITS as usize);
+    assert!(accepted.iter().all(Result::is_ok));
+    assert!(matches!(refused[0], Err(JobError::InsufficientCredits)));
 }

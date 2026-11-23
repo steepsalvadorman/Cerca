@@ -44,6 +44,8 @@ fn test_state(pool: PgPool) -> AppState {
         client_repository: Arc::new(PostgresClientRepository::new(pool.clone())),
         job_repository: Arc::new(PostgresJobRepository::new(pool.clone())),
         payment_gateway: Arc::new(FakePaymentGateway),
+        credit_repository: Arc::new(backend::features::credits::infrastructure::PostgresCreditRepository::new(pool.clone())),
+        payments_public: backend::features::credits::application::PaymentsPublicConfig { mode: "fake".to_string(), culqi_public_key: None },
         chat_repository: Arc::new(PostgresChatRepository::new(pool.clone())),
         tracking_repository: Arc::new(PostgresTrackingRepository::new(pool)),
         object_storage: Arc::new(UnconfiguredObjectStorage),

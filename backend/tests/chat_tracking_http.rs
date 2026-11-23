@@ -41,6 +41,8 @@ fn test_state(pool: PgPool) -> AppState {
         client_repository: Arc::new(PostgresClientRepository::new(pool.clone())),
         job_repository: Arc::new(PostgresJobRepository::new(pool.clone())),
         payment_gateway: Arc::new(FakePaymentGateway),
+        credit_repository: Arc::new(backend::features::credits::infrastructure::PostgresCreditRepository::new(pool.clone())),
+        payments_public: backend::features::credits::application::PaymentsPublicConfig { mode: "fake".to_string(), culqi_public_key: None },
         chat_repository: Arc::new(PostgresChatRepository::new(pool.clone())),
         tracking_repository: Arc::new(PostgresTrackingRepository::new(pool)),
         object_storage: Arc::new(UnconfiguredObjectStorage),
@@ -168,7 +170,7 @@ async fn an_unknown_job_is_a_404_on_the_tracking_route(pool: PgPool) {
 // ---------------------------------------------------------------------
 
 #[sqlx::test(migrations = "./migrations")]
-async fn the_chosen_technician_can_message_before_the_fee_is_paid(pool: PgPool) {
+async fn the_chosen_technician_can_message_as_soon_as_they_are_picked(pool: PgPool) {
     use std::sync::Arc;
 
     use backend::features::job::application::{
@@ -216,8 +218,10 @@ async fn the_chosen_technician_can_message_before_the_fee_is_paid(pool: PgPool) 
         .await
         .unwrap();
 
-    let unpaid = job_repo.find_job_request_by_id(job.id).await.unwrap().unwrap();
-    assert!(!unpaid.fee_paid, "precondition: fee not paid yet");
+    // Picking the offer starts the job: the client owes nothing and the
+    // winner already paid their credit, so the chat is open right away.
+    let chosen = job_repo.find_job_request_by_id(job.id).await.unwrap().unwrap();
+    assert!(chosen.technician_profile_id.is_some(), "precondition: technician chosen");
 
     let (status, body) = call(
         &pool,

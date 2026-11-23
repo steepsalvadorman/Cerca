@@ -68,11 +68,4 @@ class ActiveJobController extends _$ActiveJobController {
     await _refresh();
   }
 
-  Future<void> chooseOffer(int offerId) async {
-    final jobId = ref.read(jobSessionControllerProvider);
-    if (jobId == null) return;
-    state = const AsyncLoading();
-    await ref.read(jobRepositoryProvider).chooseOffer(jobId, offerId);
-    await _refresh();
-  }
 }

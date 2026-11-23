@@ -7,6 +7,7 @@ import '../../../../core/router/route_paths.dart';
 import '../../../../core/router/back_navigation.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../cerca/application/cerca_seed_data.dart';
+import '../../../credits/application/credits_controller.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
@@ -48,13 +49,22 @@ class _TechnicianJobDetailScreenState extends ConsumerState<TechnicianJobDetailS
     setState(() => _submitting = true);
     try {
       await ref.read(technicianJobsControllerProvider.notifier).submitOffer(jobId, price: price, eta: eta);
+      // The new offer holds one credit back.
+      ref.invalidate(creditsOverviewProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Oferta enviada.')));
       context.go(RoutePaths.technicianJobs);
     } catch (e) {
       if (!mounted) return;
       final message = e is ApiException ? e.message : 'No se pudo enviar la oferta.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      // 402: no free credit to back the offer — offer the way out.
+      final outOfCredits = e is ApiException && e.statusCode == 402;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(message),
+        action: outOfCredits
+            ? SnackBarAction(label: 'Comprar', onPressed: () => context.push(RoutePaths.techCredits))
+            : null,
+      ));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -178,16 +188,18 @@ class _TechnicianJobDetailScreenState extends ConsumerState<TechnicianJobDetailS
                     const SizedBox(height: 20),
                     if (isOpenForBid) ...[
                       Text('Enviar oferta', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
+                      const _CreditsHint(),
+                      const SizedBox(height: 10),
                       TextField(
                         controller: _priceController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(hintText: 'Precio (ej: 27000)'),
+                        decoration: const InputDecoration(labelText: 'Precio en soles', hintText: 'Ej.: 120'),
                       ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: _etaController,
-                        decoration: const InputDecoration(hintText: 'Tiempo estimado (ej: Hoy, 16:00)'),
+                        decoration: const InputDecoration(labelText: 'Cuándo puedes ir', hintText: 'Ej.: Hoy, 16:00'),
                       ),
                     ] else if (isAssignedToMe) ...[
                       Text('Este trabajo está asignado a ti.', style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary)),
@@ -268,6 +280,41 @@ class _Row extends StatelessWidget {
       children: [
         Text(label, style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary)),
         Text(value, style: CercaText.sora(fontSize: 12.5, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+/// "Si te eligen, se descuenta 1 crédito" next to the offer form, with the
+/// free credits left and a way to buy more.
+class _CreditsHint extends ConsumerWidget {
+  const _CreditsHint();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final available = ref.watch(creditsOverviewProvider).value?.wallet.available;
+    final empty = available == 0;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            available == null
+                ? 'Si el cliente elige tu oferta, se descuenta 1 crédito.'
+                : empty
+                    ? 'No tienes créditos libres para ofertar.'
+                    : 'Si el cliente te elige, se descuenta 1 crédito. Tienes $available disponible${available == 1 ? '' : 's'}.',
+            style: CercaText.sora(
+              fontSize: 12,
+              color: empty ? AppColors.cercaWarnText : AppColors.cercaTextSecondary,
+              height: 1.4,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () => context.push(RoutePaths.techCredits),
+          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          child: Text(empty ? 'Comprar' : 'Ver'),
+        ),
       ],
     );
   }

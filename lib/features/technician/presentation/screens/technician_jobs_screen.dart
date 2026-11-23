@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/application/auth_controller.dart';
+import '../../../credits/application/credits_controller.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../job_request/application/job_session_controller.dart';
 import '../../../job_request/application/technician_jobs_controller.dart';
@@ -44,13 +45,16 @@ class TechnicianJobsScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-
+                  const _CreditsChip(),
                 ],
               ),
             ),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () => ref.read(technicianJobsControllerProvider.notifier).refresh(),
+                onRefresh: () {
+                  ref.invalidate(creditsOverviewProvider);
+                  return ref.read(technicianJobsControllerProvider.notifier).refresh();
+                },
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
@@ -157,6 +161,53 @@ class _JobCard extends StatelessWidget {
               child: Text(job.statusLabel, style: CercaText.sora(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Free credits at a glance; opens "Mis créditos". Warns in amber at zero,
+/// when no new offer can be sent.
+class _CreditsChip extends ConsumerWidget {
+  const _CreditsChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final available = ref.watch(creditsOverviewProvider).value?.wallet.available;
+    final empty = available == 0;
+    final label = available == null ? 'Créditos' : '$available crédito${available == 1 ? '' : 's'}';
+    return Semantics(
+      button: true,
+      label: available == null ? 'Mis créditos' : '$label disponibles. Abrir mis créditos',
+      excludeSemantics: true,
+      child: Material(
+        color: empty ? AppColors.cercaWarnBg : AppColors.cercaSurfaceTint,
+        shape: StadiumBorder(side: BorderSide(color: empty ? AppColors.cercaWarnBorder : const Color(0xFFEAD6D2))),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: () => context.push(RoutePaths.techCredits),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.toll_outlined, size: 18, color: empty ? AppColors.cercaWarnText : AppColors.cercaPrimary),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: CercaText.sora(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: empty ? AppColors.cercaWarnText : AppColors.cercaPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

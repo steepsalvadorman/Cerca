@@ -145,8 +145,10 @@ void main() {
   /// copy is only a fallback for before the job has loaded. If it drifts,
   /// the button advertises one price and the API charges another (GAP-55).
   group('fee fallback', () {
-    test('matches the backend schedule: bidding 4, everything else free', () {
-      expect(CercaSeedData.feeConfig[FeeType.bidding]!.amount, 4);
+    // Clients pay nothing since migration 0016: the technician pays a
+    // credit when they win (`fee_amount_for` in the backend returns 0).
+    test('matches the backend schedule: every kind is free for the client', () {
+      expect(CercaSeedData.feeConfig[FeeType.bidding]!.amount, 0);
       expect(CercaSeedData.feeConfig[FeeType.direct]!.amount, 0);
       expect(CercaSeedData.feeConfig[FeeType.project]!.amount, 0);
     });
