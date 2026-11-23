@@ -25,10 +25,14 @@ pub struct AppConfig {
     /// `/auth/google` answers 503 rather than accepting tokens minted
     /// for some other app.
     pub google_client_ids: Vec<String>,
-    /// How fee payments are collected. `"fake"` simulates success (dev/test
-    /// only — `main` refuses it in production). Anything else today answers
-    /// 503 until a real PSP adapter is wired (GAP-14).
+    /// How payments are collected. `"fake"` simulates success (dev/test
+    /// only — `main` refuses it in production); `"culqi"` charges for
+    /// real and needs both keys below. Anything else answers 503.
     pub payments_mode: String,
+    /// Culqi secret key (`sk_test_…` / `sk_live_…`). Server-side only.
+    pub culqi_secret_key: Option<String>,
+    /// Culqi public key (`pk_…`), handed to the app to create tokens.
+    pub culqi_public_key: Option<String>,
 }
 
 impl AppConfig {
@@ -63,6 +67,8 @@ impl AppConfig {
                 .unwrap_or_else(|_| "fake".to_string())
                 .trim()
                 .to_lowercase(),
+            culqi_secret_key: non_empty("CULQI_SECRET_KEY"),
+            culqi_public_key: non_empty("CULQI_PUBLIC_KEY"),
         }
     }
 

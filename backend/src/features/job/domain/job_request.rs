@@ -39,14 +39,13 @@ impl JobStatus {
 /// its own copy of these amounts purely for display, with nothing tying it
 /// to what the backend would accept.
 ///
-/// PLACEHOLDER PRICING: these are a rough conversion from the original
-/// Chilean-peso prototype (2990/4990 CLP), not a real product-pricing
-/// decision for the Peru market — confirm the actual amounts before launch.
-fn fee_amount_for(fee_type: &str) -> i32 {
-    match fee_type {
-        "bidding" => 4,
-        _ => 0,
-    }
+/// Every kind is free for the client: Cerca charges the *technician*, one
+/// prepaid credit when a client picks their offer (migration 0016,
+/// `features::credits`). The per-auction S/ 4 the client used to pay lost
+/// a quarter or more to the PSP's fixed fee and needed a receipt per S/ 4.
+/// Kept as a function so a paid kind can come back without a schema change.
+fn fee_amount_for(_fee_type: &str) -> i32 {
+    0
 }
 
 #[derive(Debug, Clone)]
@@ -102,13 +101,16 @@ impl JobRequest {
     ) -> Self {
         let fee_amount = fee_amount_for(&fee_type);
         let is_free = fee_amount == 0;
+        // An auction stays open until the client picks an offer, whatever
+        // it costs; everything else starts right away once it is paid for.
+        let starts_pending = job_kind == "bidding" || !is_free;
         Self {
             id: Uuid::new_v4(),
             client_id,
             technician_profile_id,
             tech_team_id,
             job_kind,
-            status: if is_free { JobStatus::Active } else { JobStatus::Pending },
+            status: if starts_pending { JobStatus::Pending } else { JobStatus::Active },
             timeline_step: 0,
             fee_amount,
             fee_type,
@@ -156,6 +158,24 @@ impl JobRequest {
 
         self.fee_paid = true;
         self.payment_done = true;
+        self.status = JobStatus::Active;
+        self.timeline_step = 0; // Confirmado
+        Ok(())
+    }
+
+    /// The client picks the winning offer of an open auction: the job gets
+    /// its technician and price and starts. One-time — a job under way, or
+    /// one that already has a technician, cannot be reassigned.
+    pub fn assign_winner(&mut self, technician_profile_id: i32, price: i32) -> Result<(), JobError> {
+        if self.job_kind != "bidding" || self.status != JobStatus::Pending || self.technician_profile_id.is_some() {
+            return Err(JobError::InvalidStatusTransition);
+        }
+        self.technician_profile_id = Some(technician_profile_id);
+        self.agreed_price = Some(price);
+        // The client owes nothing for an auction any more — the winner
+        // pays a credit — so the fee is settled here even on an auction
+        // created under the old per-auction fee.
+        self.fee_paid = true;
         self.status = JobStatus::Active;
         self.timeline_step = 0; // Confirmado
         Ok(())
@@ -243,22 +263,50 @@ mod tests {
     }
 
     #[test]
-    fn only_bidding_has_the_four_sol_fee() {
+    fn every_kind_is_free_for_the_client() {
         let direct = job("direct");
         let project = job("project");
         let bidding = job("bidding");
 
         assert_eq!((direct.fee_amount, direct.fee_paid, direct.status), (0, true, JobStatus::Active));
         assert_eq!((project.fee_amount, project.fee_paid, project.status), (0, true, JobStatus::Active));
-        assert_eq!((bidding.fee_amount, bidding.fee_paid, bidding.status), (4, false, JobStatus::Pending));
+        // Free for the client, but open until an offer is picked.
+        assert_eq!((bidding.fee_amount, bidding.fee_paid, bidding.status), (0, true, JobStatus::Pending));
     }
 
     #[test]
-    fn bidding_stays_pending_until_its_fee_is_paid() {
+    fn bidding_starts_when_the_client_picks_a_winner() {
         let mut bidding = job("bidding");
+        // Paying is a no-op now: nothing is owed, and it must not start
+        // an auction that has no technician yet.
         bidding.pay_fee().unwrap();
-        assert!(bidding.fee_paid);
-        assert_eq!(bidding.status, JobStatus::Active);
+        assert_eq!(bidding.status, JobStatus::Pending);
+
+        bidding.assign_winner(7, 150).unwrap();
+        assert_eq!(bidding.technician_profile_id, Some(7));
+        assert_eq!(bidding.agreed_price, Some(150));
+        assert_eq!((bidding.status, bidding.timeline_step), (JobStatus::Active, 0));
+    }
+
+    #[test]
+    fn an_auction_opened_under_the_old_client_fee_still_starts_on_a_win() {
+        let mut legacy = job("bidding");
+        legacy.fee_amount = 4;
+        legacy.fee_paid = false;
+
+        legacy.assign_winner(7, 150).unwrap();
+        assert!(legacy.fee_paid);
+        assert_eq!(legacy.status, JobStatus::Active);
+    }
+
+    #[test]
+    fn a_winner_is_picked_once_and_only_on_open_auctions() {
+        let mut bidding = job("bidding");
+        bidding.assign_winner(7, 150).unwrap();
+        assert!(bidding.assign_winner(8, 120).is_err(), "reassigning a started job");
+
+        let mut direct = job("direct");
+        assert!(direct.assign_winner(7, 150).is_err(), "a direct hire is not an auction");
     }
 
     #[test]
