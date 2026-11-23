@@ -79,21 +79,19 @@ impl SignInWithGoogleUseCase {
             return self.session_for(user, false);
         }
 
-        // 2. Same person, and an account we can safely adopt.
+        // 2. The address already belongs to an account that this Google
+        //    subject is not linked to. Never adopt it silently: a missing
+        //    password does not prove the account is unclaimed (the seeded
+        //    demo accounts are passwordless; a Google-created account is
+        //    passwordless and already bound to a *different* subject).
+        //    Linking needs the owner to be signed in, which is a separate,
+        //    authenticated flow.
         if let Some(user) = self.repository.find_by_email(&email).await? {
-            // Only an account with no password of its own may be linked
-            // without further proof: it was created by a provider that
-            // already verified this same address, so there is no second
-            // credential for anyone to hold. An account with a password
-            // could belong to somebody else (the pre-hijack above).
-            if user.password_hash.is_some() {
-                return Err(AuthError::LinkRequiresPassword);
-            }
-
-            self.repository
-                .link_identity(IdentityProvider::Google, &identity.subject, user.id)
-                .await?;
-            return self.session_for(user, false);
+            return Err(if user.password_hash.is_some() {
+                AuthError::LinkRequiresPassword
+            } else {
+                AuthError::AccountAlreadyLinked
+            });
         }
 
         // 3. First time here — the role decides which half of the app
