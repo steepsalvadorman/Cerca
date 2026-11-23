@@ -24,6 +24,7 @@ import '../../features/technician/presentation/screens/technician_jobs_screen.da
 import '../../features/technician/presentation/screens/technician_profile_screen.dart';
 import '../../features/tracking/presentation/screens/tracking_screen.dart';
 import '../../features/welcome/presentation/screens/welcome_screen.dart';
+import '../../features/credits/presentation/screens/credits_screen.dart';
 import 'app_shell.dart';
 import 'route_paths.dart';
 import 'back_navigation.dart';
@@ -60,6 +61,7 @@ const _technicianOnlyRoutes = {
   RoutePaths.technicianJobs,
   RoutePaths.technicianJobDetail,
   RoutePaths.technicianChats,
+  RoutePaths.techCredits,
 };
 
 /// Bridges a Riverpod provider to the `Listenable` GoRouter wants, so the
@@ -129,6 +131,10 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: RoutePaths.technicianJobDetail,
         builder: (context, state) => _withParent(RoutePaths.technicianJobs, const TechnicianJobDetailScreen()),
+      ),
+      GoRoute(
+        path: RoutePaths.techCredits,
+        builder: (context, state) => _withParent(RoutePaths.technicianJobs, const CreditsScreen()),
       ),
       GoRoute(
         path: RoutePaths.providerProfile,
