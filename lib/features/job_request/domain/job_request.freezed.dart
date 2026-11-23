@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$JobRequest {
 
- String get id; String get clientId; int? get technicianProfileId; int? get techTeamId; String get jobKind; String get status; int get timelineStep; String get feeType; int get feeAmount; bool get feePaid; String? get paymentMethod; bool get paymentDone; bool get mobilityIncluded; int? get agreedPrice; int? get rating; String? get title; String? get address; String? get comment; String get createdAt;
+ String get id; String? get clientId; int? get technicianProfileId; int? get techTeamId; String get jobKind; String get status; int get timelineStep; String get feeType; int get feeAmount; bool get feePaid; String? get paymentMethod; bool get paymentDone; bool get mobilityIncluded; int? get agreedPrice; int? get rating; String? get title; String? get address; String? get comment; String get createdAt;
 /// Create a copy of JobRequest
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -48,7 +48,7 @@ abstract mixin class $JobRequestCopyWith<$Res>  {
   factory $JobRequestCopyWith(JobRequest value, $Res Function(JobRequest) _then) = _$JobRequestCopyWithImpl;
 @useResult
 $Res call({
- String id, String clientId, int? technicianProfileId, int? techTeamId, String jobKind, String status, int timelineStep, String feeType, int feeAmount, bool feePaid, String? paymentMethod, bool paymentDone, bool mobilityIncluded, int? agreedPrice, int? rating, String? title, String? address, String? comment, String createdAt
+ String id, String? clientId, int? technicianProfileId, int? techTeamId, String jobKind, String status, int timelineStep, String feeType, int feeAmount, bool feePaid, String? paymentMethod, bool paymentDone, bool mobilityIncluded, int? agreedPrice, int? rating, String? title, String? address, String? comment, String createdAt
 });
 
 
@@ -65,11 +65,11 @@ class _$JobRequestCopyWithImpl<$Res>
 
 /// Create a copy of JobRequest
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? clientId = null,Object? technicianProfileId = freezed,Object? techTeamId = freezed,Object? jobKind = null,Object? status = null,Object? timelineStep = null,Object? feeType = null,Object? feeAmount = null,Object? feePaid = null,Object? paymentMethod = freezed,Object? paymentDone = null,Object? mobilityIncluded = null,Object? agreedPrice = freezed,Object? rating = freezed,Object? title = freezed,Object? address = freezed,Object? comment = freezed,Object? createdAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? clientId = freezed,Object? technicianProfileId = freezed,Object? techTeamId = freezed,Object? jobKind = null,Object? status = null,Object? timelineStep = null,Object? feeType = null,Object? feeAmount = null,Object? feePaid = null,Object? paymentMethod = freezed,Object? paymentDone = null,Object? mobilityIncluded = null,Object? agreedPrice = freezed,Object? rating = freezed,Object? title = freezed,Object? address = freezed,Object? comment = freezed,Object? createdAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,clientId: null == clientId ? _self.clientId : clientId // ignore: cast_nullable_to_non_nullable
-as String,technicianProfileId: freezed == technicianProfileId ? _self.technicianProfileId : technicianProfileId // ignore: cast_nullable_to_non_nullable
+as String,clientId: freezed == clientId ? _self.clientId : clientId // ignore: cast_nullable_to_non_nullable
+as String?,technicianProfileId: freezed == technicianProfileId ? _self.technicianProfileId : technicianProfileId // ignore: cast_nullable_to_non_nullable
 as int?,techTeamId: freezed == techTeamId ? _self.techTeamId : techTeamId // ignore: cast_nullable_to_non_nullable
 as int?,jobKind: null == jobKind ? _self.jobKind : jobKind // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
@@ -171,7 +171,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String? clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _JobRequest() when $default != null:
 return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.agreedPrice,_that.rating,_that.title,_that.address,_that.comment,_that.createdAt);case _:
@@ -192,7 +192,7 @@ return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeam
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String? clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _JobRequest():
 return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.agreedPrice,_that.rating,_that.title,_that.address,_that.comment,_that.createdAt);case _:
@@ -212,7 +212,7 @@ return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeam
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String? clientId,  int? technicianProfileId,  int? techTeamId,  String jobKind,  String status,  int timelineStep,  String feeType,  int feeAmount,  bool feePaid,  String? paymentMethod,  bool paymentDone,  bool mobilityIncluded,  int? agreedPrice,  int? rating,  String? title,  String? address,  String? comment,  String createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _JobRequest() when $default != null:
 return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeamId,_that.jobKind,_that.status,_that.timelineStep,_that.feeType,_that.feeAmount,_that.feePaid,_that.paymentMethod,_that.paymentDone,_that.mobilityIncluded,_that.agreedPrice,_that.rating,_that.title,_that.address,_that.comment,_that.createdAt);case _:
@@ -227,22 +227,22 @@ return $default(_that.id,_that.clientId,_that.technicianProfileId,_that.techTeam
 @JsonSerializable()
 
 class _JobRequest implements JobRequest {
-  const _JobRequest({required this.id, required this.clientId, this.technicianProfileId, this.techTeamId, required this.jobKind, required this.status, required this.timelineStep, required this.feeType, required this.feeAmount, required this.feePaid, this.paymentMethod, required this.paymentDone, required this.mobilityIncluded, this.agreedPrice, this.rating, this.title, this.address, this.comment, required this.createdAt});
+  const _JobRequest({required this.id, this.clientId, this.technicianProfileId, this.techTeamId, required this.jobKind, required this.status, this.timelineStep = 0, this.feeType = '', this.feeAmount = 0, this.feePaid = false, this.paymentMethod, this.paymentDone = false, this.mobilityIncluded = false, this.agreedPrice, this.rating, this.title, this.address, this.comment, required this.createdAt});
   factory _JobRequest.fromJson(Map<String, dynamic> json) => _$JobRequestFromJson(json);
 
 @override final  String id;
-@override final  String clientId;
+@override final  String? clientId;
 @override final  int? technicianProfileId;
 @override final  int? techTeamId;
 @override final  String jobKind;
 @override final  String status;
-@override final  int timelineStep;
-@override final  String feeType;
-@override final  int feeAmount;
-@override final  bool feePaid;
+@override@JsonKey() final  int timelineStep;
+@override@JsonKey() final  String feeType;
+@override@JsonKey() final  int feeAmount;
+@override@JsonKey() final  bool feePaid;
 @override final  String? paymentMethod;
-@override final  bool paymentDone;
-@override final  bool mobilityIncluded;
+@override@JsonKey() final  bool paymentDone;
+@override@JsonKey() final  bool mobilityIncluded;
 @override final  int? agreedPrice;
 @override final  int? rating;
 @override final  String? title;
@@ -283,7 +283,7 @@ abstract mixin class _$JobRequestCopyWith<$Res> implements $JobRequestCopyWith<$
   factory _$JobRequestCopyWith(_JobRequest value, $Res Function(_JobRequest) _then) = __$JobRequestCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String clientId, int? technicianProfileId, int? techTeamId, String jobKind, String status, int timelineStep, String feeType, int feeAmount, bool feePaid, String? paymentMethod, bool paymentDone, bool mobilityIncluded, int? agreedPrice, int? rating, String? title, String? address, String? comment, String createdAt
+ String id, String? clientId, int? technicianProfileId, int? techTeamId, String jobKind, String status, int timelineStep, String feeType, int feeAmount, bool feePaid, String? paymentMethod, bool paymentDone, bool mobilityIncluded, int? agreedPrice, int? rating, String? title, String? address, String? comment, String createdAt
 });
 
 
@@ -300,11 +300,11 @@ class __$JobRequestCopyWithImpl<$Res>
 
 /// Create a copy of JobRequest
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? clientId = null,Object? technicianProfileId = freezed,Object? techTeamId = freezed,Object? jobKind = null,Object? status = null,Object? timelineStep = null,Object? feeType = null,Object? feeAmount = null,Object? feePaid = null,Object? paymentMethod = freezed,Object? paymentDone = null,Object? mobilityIncluded = null,Object? agreedPrice = freezed,Object? rating = freezed,Object? title = freezed,Object? address = freezed,Object? comment = freezed,Object? createdAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? clientId = freezed,Object? technicianProfileId = freezed,Object? techTeamId = freezed,Object? jobKind = null,Object? status = null,Object? timelineStep = null,Object? feeType = null,Object? feeAmount = null,Object? feePaid = null,Object? paymentMethod = freezed,Object? paymentDone = null,Object? mobilityIncluded = null,Object? agreedPrice = freezed,Object? rating = freezed,Object? title = freezed,Object? address = freezed,Object? comment = freezed,Object? createdAt = null,}) {
   return _then(_JobRequest(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as String,clientId: null == clientId ? _self.clientId : clientId // ignore: cast_nullable_to_non_nullable
-as String,technicianProfileId: freezed == technicianProfileId ? _self.technicianProfileId : technicianProfileId // ignore: cast_nullable_to_non_nullable
+as String,clientId: freezed == clientId ? _self.clientId : clientId // ignore: cast_nullable_to_non_nullable
+as String?,technicianProfileId: freezed == technicianProfileId ? _self.technicianProfileId : technicianProfileId // ignore: cast_nullable_to_non_nullable
 as int?,techTeamId: freezed == techTeamId ? _self.techTeamId : techTeamId // ignore: cast_nullable_to_non_nullable
 as int?,jobKind: null == jobKind ? _self.jobKind : jobKind // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
