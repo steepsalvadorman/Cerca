@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+# Least privilege for the automatic token: these jobs only read the repo.
+permissions:
+  contents: read
+
 jobs:
   # Never ship a build whose tests did not pass.
   tests:
@@ -13,6 +17,12 @@ jobs:
   build-and-package:
     needs: tests
     runs-on: ubuntu-latest
+    # The release signing secrets live in this Environment, whose
+    # deployment branches are limited to `main` (repo Settings →
+    # Environments). Without it, repository-scoped secrets reached build
+    # code from any branch through workflow_dispatch or a pushed workflow
+    # (security audit run-1).
+    environment: android-release
     steps:
       - uses: actions/checkout@v4
 
