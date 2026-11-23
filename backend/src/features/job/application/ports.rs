@@ -10,6 +10,11 @@ pub enum PaymentError {
     #[error("el pago fue rechazado")]
     Declined,
 
+    /// Refused with a message meant for the payer ("fondos insuficientes",
+    /// "tarjeta vencida"…), straight from the PSP.
+    #[error("{user_message}")]
+    Rejected { user_message: String },
+
     #[error("error interno de pagos: {0}")]
     Internal(String),
 }
@@ -22,6 +27,17 @@ pub struct PaymentCapture {
     pub simulated: bool,
 }
 
+/// A one-off charge against a token the app created with the PSP's
+/// public key (card or Yape). Card data never reaches this server.
+#[derive(Debug, Clone)]
+pub struct TokenCharge {
+    pub amount_cents: i32,
+    pub email: String,
+    pub source_id: String,
+    pub description: String,
+    pub idempotency_key: Uuid,
+}
+
 /// Port for charging Cerca's contact fee. Production will plug in a real
 /// PSP; development and tests use `FakePaymentGateway` (GAP-14).
 #[async_trait]
@@ -32,4 +48,7 @@ pub trait PaymentGateway: Send + Sync {
         payment_method: &str,
         idempotency_key: Uuid,
     ) -> Result<PaymentCapture, PaymentError>;
+
+    /// Charges a PSP token — how technicians pay for credit packs.
+    async fn charge_token(&self, charge: &TokenCharge) -> Result<PaymentCapture, PaymentError>;
 }

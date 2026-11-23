@@ -19,7 +19,7 @@ pub use create_job::{CreateJobInput, CreateJobUseCase};
 pub use get_technician_jobs::{GetTechnicianJobsUseCase, TechnicianJobsOutput};
 pub use pay_fee::{PayFeeInput, PayFeeResult, PayFeeUseCase};
 pub use rate_job::{RateJobInput, RateJobUseCase};
-pub use ports::{PaymentCapture, PaymentError, PaymentGateway};
+pub use ports::{PaymentCapture, PaymentError, PaymentGateway, TokenCharge};
 pub use submit_offer::{SubmitOfferInput, SubmitOfferUseCase};
 
 use crate::features::job::domain::{JobError, JobOffer, JobRequest, JobRepository, JobStatus};
