@@ -8,6 +8,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/back_navigation.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../cerca/application/cerca_seed_data.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../../auth/domain/auth_user.dart';
 import '../../../cerca/application/cerca_format.dart';
@@ -152,7 +153,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     }
 
-    final status = _ChatStatus.fromStatus(jobStatus);
+    final status = _ChatStatus.fromStatus(jobStatus, timelineStep: job?.timelineStep);
     final messageCount = messagesAsync?.value?.length ?? 0;
     if (messageCount != _lastMessageCount && messageCount > 0) {
       _lastMessageCount = messageCount;
@@ -462,9 +463,19 @@ class _ChatStatus {
   final String label;
   final Color textColor;
 
-  factory _ChatStatus.fromStatus(String? status) {
+  /// An active job reads the same step label the tracking timeline shows,
+  /// so the two screens never disagree. Without the step (thread opened from
+  /// the inbox), it stays neutral instead of claiming "En camino".
+  factory _ChatStatus.fromStatus(String? status, {int? timelineStep}) {
+    if (status == 'active' && timelineStep != null) {
+      for (final step in CercaSeedData.timelineSteps) {
+        if (step.step == timelineStep) {
+          return _ChatStatus(label: step.label, textColor: AppColors.cercaSuccessText);
+        }
+      }
+    }
     return switch (status) {
-      'active' => const _ChatStatus(label: 'En camino', textColor: AppColors.cercaSuccessText),
+      'active' => const _ChatStatus(label: 'En curso', textColor: AppColors.cercaSuccessText),
       'completed' => const _ChatStatus(label: 'Finalizado', textColor: AppColors.cercaTextMuted),
       'cancelled' => const _ChatStatus(label: 'Cancelado', textColor: AppColors.cercaWarnTextStrong),
       _ => const _ChatStatus(label: 'Pendiente', textColor: AppColors.cercaTextSecondary),

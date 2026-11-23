@@ -6,38 +6,9 @@ import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
-import '../../../cerca/presentation/widgets/monogram_avatar.dart';
 import '../../../job_request/application/job_session_controller.dart';
 import '../../../job_request/application/technician_jobs_controller.dart';
 import '../../../job_request/domain/job_request.dart';
-
-String _statusLabel(JobRequest job) {
-  switch (job.status) {
-    case 'pending':
-      return 'Pendiente';
-    case 'active':
-      return 'En curso';
-    case 'completed':
-      return 'Completado';
-    case 'cancelled':
-      return 'Cancelado';
-    default:
-      return job.status;
-  }
-}
-
-String _kindLabel(JobRequest job) {
-  switch (job.jobKind) {
-    case 'direct':
-      return 'Cotización directa';
-    case 'bidding':
-      return 'Licitación';
-    case 'project':
-      return 'Proyecto';
-    default:
-      return job.jobKind;
-  }
-}
 
 class TechnicianJobsScreen extends ConsumerWidget {
   const TechnicianJobsScreen({super.key});
@@ -73,11 +44,7 @@ class TechnicianJobsScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  InkWell(
-                    onTap: () => context.go(RoutePaths.techProfile),
-                    borderRadius: BorderRadius.circular(18),
-                    child: MonogramAvatar(text: userName.isEmpty ? '?' : userName[0].toUpperCase(), size: 36, borderRadius: 18, fontSize: 12.5),
-                  ),
+
                 ],
               ),
             ),
@@ -98,9 +65,24 @@ class TechnicianJobsScreen extends ConsumerWidget {
                       else if (jobsAsync.hasError && jobs == null)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text(
-                            'No se pudieron cargar tus trabajos. Desliza para reintentar.',
-                            style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No se pudieron cargar tus trabajos. Revisa tu conexión e inténtalo de nuevo.',
+                                style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary),
+                              ),
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                onPressed: () => ref.read(technicianJobsControllerProvider.notifier).refresh(),
+                                icon: const Icon(Icons.refresh_rounded, size: 18),
+                                label: const Text('Reintentar'),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 48),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       else ...[
@@ -160,10 +142,10 @@ class _JobCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(job.title?.isNotEmpty == true ? job.title! : _kindLabel(job), style: CercaText.sora(fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text(job.title?.isNotEmpty == true ? job.title! : job.kindLabel, style: CercaText.sora(fontSize: 13, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text(
-                    job.address?.isNotEmpty == true ? job.address! : _kindLabel(job),
+                    job.address?.isNotEmpty == true ? job.address! : job.kindLabel,
                     style: CercaText.sora(fontSize: 11.5, color: AppColors.cercaTextSecondary),
                   ),
                 ],
@@ -172,7 +154,7 @@ class _JobCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
               decoration: BoxDecoration(color: AppColors.cercaSurfaceTint, borderRadius: BorderRadius.circular(20)),
-              child: Text(_statusLabel(job), style: CercaText.sora(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary)),
+              child: Text(job.statusLabel, style: CercaText.sora(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary)),
             ),
           ],
         ),

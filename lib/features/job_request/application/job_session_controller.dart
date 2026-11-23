@@ -8,11 +8,15 @@ import '../data/job_repository.dart';
 part 'job_session_controller.g.dart';
 
 class ServiceRequestDraft {
-  const ServiceRequestDraft({this.categoryId, this.categoryLabel, this.description = ''});
+  const ServiceRequestDraft({this.categoryId, this.categoryLabel, this.description = '', this.address});
 
   final String? categoryId;
   final String? categoryLabel;
   final String description;
+
+  /// Where the job happens. Without it the technician has nowhere to go,
+  /// so no job is created until one is chosen.
+  final String? address;
 
   bool get isComplete => categoryId != null && description.trim().isNotEmpty;
   String get title => '${categoryLabel ?? 'Servicio'}: ${description.trim()}';
@@ -22,13 +26,26 @@ class ServiceRequestDraftController extends Notifier<ServiceRequestDraft> {
   @override
   ServiceRequestDraft build() => const ServiceRequestDraft();
 
-  void save({required String categoryId, required String categoryLabel, required String description}) {
+  void save({
+    required String categoryId,
+    required String categoryLabel,
+    required String description,
+    String? address,
+  }) {
     state = ServiceRequestDraft(
       categoryId: categoryId,
       categoryLabel: categoryLabel,
       description: description.trim(),
+      address: address ?? state.address,
     );
   }
+
+  void setAddress(String address) => state = ServiceRequestDraft(
+        categoryId: state.categoryId,
+        categoryLabel: state.categoryLabel,
+        description: state.description,
+        address: address,
+      );
 
   void clear() => state = const ServiceRequestDraft();
 }

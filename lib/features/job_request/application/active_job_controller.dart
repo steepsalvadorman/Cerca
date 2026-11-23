@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../data/job_repository.dart';
@@ -14,7 +16,26 @@ class ActiveJobController extends _$ActiveJobController {
   Future<JobRequest?> build() async {
     final jobId = ref.watch(jobSessionControllerProvider);
     if (jobId == null) return null;
+
+    // The technician drives the timeline from their phone; without
+    // re-reading the job the client never sees "En camino" or the rating
+    // unlock. Polls only while someone watches (autoDispose) and stops
+    // once the job can no longer change.
+    final timer = Timer.periodic(const Duration(seconds: 10), (_) => _pollOnce(jobId));
+    ref.onDispose(timer.cancel);
+
     return ref.read(jobRepositoryProvider).getJob(jobId);
+  }
+
+  Future<void> _pollOnce(String jobId) async {
+    final current = state.value;
+    if (state.isLoading || current == null || current.isCompleted || current.isCancelled) return;
+    try {
+      final fresh = await ref.read(jobRepositoryProvider).getJob(jobId);
+      if (ref.read(jobSessionControllerProvider) == jobId) state = AsyncData(fresh);
+    } catch (_) {
+      // A missed poll keeps the last known state; the next tick retries.
+    }
   }
 
   Future<void> _refresh() async {

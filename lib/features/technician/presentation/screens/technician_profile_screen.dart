@@ -141,12 +141,16 @@ class TechnicianProfileScreen extends ConsumerWidget {
                                 border: false,
                               ),
                               const SizedBox(width: 7),
-                              Text(
-                                'Volver',
-                                style: CercaText.sora(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                              // Visual caption only: the button already announces
+                              // "Regresar", so TalkBack shouldn't read it twice.
+                              ExcludeSemantics(
+                                child: Text(
+                                  'Volver',
+                                  style: CercaText.sora(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ],
@@ -189,7 +193,15 @@ class TechnicianProfileScreen extends ConsumerWidget {
                                 ],
                               ),
                               const SizedBox(height: 2),
-                              Text('${provider.oficio} · ${provider.distance} de ti', style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary)),
+                              // A technician's rating, reviews and distance live in
+                              // the stats row below; repeating them here said
+                              // everything twice. Teams' stats row shows crew and
+                              // projects instead, so they keep this line.
+                              Text(
+                                provider.team == null ? provider.oficio : '${provider.oficio} · ${provider.distance} de ti',
+                                style: CercaText.sora(fontSize: 13, color: AppColors.cercaTextSecondary),
+                              ),
+                              if (provider.team != null) ...[
                               const SizedBox(height: 4),
                               Text.rich(
                                 TextSpan(
@@ -204,6 +216,7 @@ class TechnicianProfileScreen extends ConsumerWidget {
                                   ],
                                 ),
                               ),
+                              ],
                               const SizedBox(height: 16),
                               if (provider.team case TechTeam(:final crew, :final projects))
                                 _StatsRow(items: [
@@ -274,7 +287,7 @@ class TechnicianProfileScreen extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: Text(
-                    isTeam ? 'Cotizar proyecto' : 'Solicitar cotización',
+                    isTeam ? 'Cotizar proyecto' : 'Solicitar a ${provider.name.split(' ').first}',
                     style: CercaText.sora(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
                   ),
                 ),

@@ -6,6 +6,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/router/back_navigation.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../cerca/application/cerca_seed_data.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/primary_action_button.dart';
@@ -164,12 +165,12 @@ class _TechnicianJobDetailScreenState extends ConsumerState<TechnicianJobDetailS
                       ),
                       child: Column(
                         children: [
-                          _Row('Estado', job.status),
+                          _Row('Estado', job.statusLabel),
                           const SizedBox(height: 6),
-                          _Row('Tipo', job.jobKind),
+                          _Row('Tipo', job.kindLabel),
                           if (isAssignedToMe) ...[
                             const SizedBox(height: 6),
-                            _Row('Progreso', '${job.timelineStep} / 3'),
+                            _Row('Progreso', CercaSeedData.timelineSteps.firstWhere((s) => s.step == job.timelineStep, orElse: () => CercaSeedData.timelineSteps.first).label),
                           ],
                         ],
                       ),

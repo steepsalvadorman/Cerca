@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../../core/router/route_paths.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../widgets/active_jobs_section.dart';
 import '../../../auth/application/auth_controller.dart';
 import '../../../cerca/application/cerca_controller.dart';
 import '../../../cerca/application/cerca_seed_data.dart';
@@ -141,23 +142,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ],
                         ),
                       ),
-                      InkWell(
-                        onTap: () => context.go(RoutePaths.clientAccount),
-                        borderRadius: BorderRadius.circular(18),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: const BoxDecoration(
-                            color: AppColors.cercaSurfaceTint,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.person_outline_rounded,
-                            size: 21,
-                            color: AppColors.cercaPrimary,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -167,6 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const ActiveJobsSection(),
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
@@ -619,7 +604,7 @@ class _CategoryChip extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.center,
                   child: Text(
-                    category.label,
+                    category.shortLabel,
                     maxLines: 1,
                     softWrap: false,
                     style: CercaText.sora(

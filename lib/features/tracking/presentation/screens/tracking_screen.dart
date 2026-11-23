@@ -144,16 +144,17 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                               ],
                             ),
                           ),
-                          InkWell(
-                            onTap: () => context.push(job == null ? RoutePaths.chat : RoutePaths.chatFor(job.id)),
-                            customBorder: const CircleBorder(),
-                            child: Container(
-                              width: 34,
-                              height: 34,
-                              alignment: Alignment.center,
-                              decoration: const BoxDecoration(color: AppColors.cercaSurfaceTint, shape: BoxShape.circle),
-                              child: const Text('💬', style: TextStyle(fontSize: 14)),
+                          // 48dp hit area around a 36dp visual, and a real
+                          // name for TalkBack instead of the emoji's.
+                          IconButton(
+                            onPressed: () => context.push(job == null ? RoutePaths.chat : RoutePaths.chatFor(job.id)),
+                            tooltip: 'Abrir chat con $providerName',
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppColors.cercaSurfaceTint,
+                              foregroundColor: AppColors.cercaPrimary,
+                              minimumSize: const Size(48, 48),
                             ),
+                            icon: const Icon(Icons.chat_bubble_outline, size: 20),
                           ),
                         ],
                       ),
@@ -186,9 +187,21 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
             // anyone else. This screen shows progress and offers the two
             // things a client can actually do: chat, and pay/rate.
             // See GAP-15.
+            // Rating before the work happened would corrupt the technician's
+            // reputation, so the CTA unlocks only once the technician marks
+            // the job finished — and says why until then.
+            if (job?.isCompleted != true)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                child: Text(
+                  'Podrás calificar cuando el técnico marque el trabajo como terminado.',
+                  textAlign: TextAlign.center,
+                  style: CercaText.sora(fontSize: 12, color: AppColors.cercaTextSecondary, height: 1.4),
+                ),
+              ),
             PrimaryActionButton(
-              label: job?.isCompleted == true ? 'Calificar el trabajo' : 'Ir a pagar y calificar',
-              enabled: true,
+              label: 'Calificar el trabajo',
+              enabled: job?.isCompleted == true,
               onTap: () => context.push(RoutePaths.jobRating),
             ),
           ],
@@ -241,11 +254,20 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The value wraps under its own column: titles and addresses are real
+    // user text now and run long.
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary)),
-        Text(value, style: CercaText.sora(fontSize: 12.5, fontWeight: bold ? FontWeight.w700 : FontWeight.w600, color: valueColor)),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: CercaText.sora(fontSize: 12.5, fontWeight: bold ? FontWeight.w700 : FontWeight.w600, color: valueColor),
+          ),
+        ),
       ],
     );
   }

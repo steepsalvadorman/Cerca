@@ -212,6 +212,17 @@ class ClientAccountScreen extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      // Cerca never charges for the work itself; say what a
+                      // saved card is for, so it doesn't read as a contradiction.
+                      Text(
+                        'Solo para la comisión de licitación (S/ 4). El trabajo se paga directo al técnico.',
+                        style: CercaText.sora(
+                          fontSize: 12,
+                          color: AppColors.cercaTextSecondary,
+                          height: 1.4,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       for (final method in account?.paymentMethods ?? const [])
                         _InfoRow(title: method.label, detail: method.detail),
@@ -383,13 +394,16 @@ class _HistoryRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                category,
-                style: CercaText.sora(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  category,
+                  style: CercaText.sora(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                 decoration: BoxDecoration(
