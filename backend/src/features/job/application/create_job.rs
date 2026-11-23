@@ -3,6 +3,9 @@ use uuid::Uuid;
 
 use crate::features::job::domain::{JobError, JobRequest, JobRepository};
 
+/// Pending or active jobs a client may hold at once.
+pub const MAX_OPEN_JOBS_PER_CLIENT: i64 = 10;
+
 pub struct CreateJobInput {
     pub client_id: Uuid,
     pub technician_profile_id: Option<i32>,
@@ -36,6 +39,13 @@ impl CreateJobUseCase {
         };
         if !valid_assignment {
             return Err(JobError::InvalidStatusTransition);
+        }
+
+        // Every open job lands in somebody else's list (the named
+        // technician's inbox, or every technician's bidding feed). Without
+        // a cap one account could flood those lists without limit.
+        if self.job_repo.count_open_jobs_by_client(input.client_id).await? >= MAX_OPEN_JOBS_PER_CLIENT {
+            return Err(JobError::TooManyOpenJobs);
         }
 
         // fee type matches the job kind

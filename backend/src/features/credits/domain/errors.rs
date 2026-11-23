@@ -16,6 +16,10 @@ pub enum CreditError {
     PaymentDeclined(String),
     #[error("el proveedor de pagos no está disponible")]
     PaymentUnavailable,
+    /// A previous attempt with this purchase id has an unresolved outcome
+    /// (the PSP may have charged); it is never charged a second time.
+    #[error("tu pago anterior todavía se está confirmando; revisa tus créditos en unos minutos")]
+    PaymentPending,
     #[error("database error: {0}")]
     Repository(String),
 }

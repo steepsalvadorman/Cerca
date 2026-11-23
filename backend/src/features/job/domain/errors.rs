@@ -40,6 +40,8 @@ pub enum JobError {
     /// waiting on open auctions (see `credits::Wallet`).
     #[error("no tienes créditos disponibles: compra un paquete para seguir ofertando")]
     InsufficientCredits,
+    #[error("ya tienes demasiadas solicitudes abiertas; cierra o cancela alguna antes de crear otra")]
+    TooManyOpenJobs,
     #[error("el pago no pudo completarse")]
     PaymentFailed,
 

@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use crate::features::auth::interfaces::http::middleware::{ClientUser, CurrentUser, TechnicianUser};
 use crate::features::job::application::{
+    RespondDirectJobUseCase,
     AdvanceProgressUseCase, CancelJobInput, CancelJobUseCase, ChooseOfferInput, ChooseOfferUseCase,
     CreateJobInput, CreateJobUseCase, GetClientHistoryUseCase, GetJobOffersUseCase,
     GetJobRequestUseCase, GetTechnicianJobsUseCase, PayFeeInput, PayFeeUseCase, RateJobInput,
@@ -98,6 +99,28 @@ pub async fn advance_progress(
     Ok(StatusCode::OK)
 }
 
+pub async fn accept_direct_job(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    current_user: TechnicianUser,
+) -> Result<StatusCode, AppError> {
+    RespondDirectJobUseCase::new(state.job_repository.clone(), state.technician_repository.clone())
+        .accept(id, current_user.user_id)
+        .await?;
+    Ok(StatusCode::OK)
+}
+
+pub async fn decline_direct_job(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    current_user: TechnicianUser,
+) -> Result<StatusCode, AppError> {
+    RespondDirectJobUseCase::new(state.job_repository.clone(), state.technician_repository.clone())
+        .decline(id, current_user.user_id)
+        .await?;
+    Ok(StatusCode::OK)
+}
+
 pub async fn rate_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -125,7 +148,7 @@ pub async fn rate_job(
 pub async fn get_offers(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    current_user: CurrentUser,
+    current_user: ClientUser,
 ) -> Result<Json<Vec<JobOfferResponse>>, AppError> {
     let use_case = GetJobOffersUseCase::new(state.job_repository.clone(), state.technician_repository.clone());
     let offers = use_case.execute(id, current_user.user_id).await?;

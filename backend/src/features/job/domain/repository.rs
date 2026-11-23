@@ -15,6 +15,14 @@ pub trait JobRepository: Send + Sync {
     /// Saves a job whose auction was just won *and* debits the winner one
     /// credit, atomically. Retrying debits nothing more.
     async fn assign_winner(&self, job: &JobRequest) -> Result<(), JobError>;
+    /// Saves an accepted direct hire and debits the technician one credit,
+    /// atomically; InsufficientCredits when no free credit is available.
+    async fn accept_direct_job(&self, job: &JobRequest) -> Result<(), JobError>;
+    /// Saves a cancelled job and, when asked, refunds the credit the job
+    /// charged its technician (at most once per job).
+    async fn cancel_job(&self, job: &JobRequest, refund_technician_credit: bool) -> Result<(), JobError>;
+    /// Pending or active jobs of a client (expired auctions excluded).
+    async fn count_open_jobs_by_client(&self, client_id: Uuid) -> Result<i64, JobError>;
     /// The technician's credits (see `credits::Wallet`).
     async fn technician_wallet(&self, technician_profile_id: i32) -> Result<Wallet, JobError>;
     async fn find_offers_by_job_id(&self, job_request_id: Uuid) -> Result<Vec<JobOffer>, JobError>;

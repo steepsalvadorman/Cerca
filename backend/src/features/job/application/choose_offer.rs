@@ -1,4 +1,6 @@
 use std::sync::Arc;
+
+use crate::features::credits::domain::OPEN_AUCTION_TTL_DAYS;
 use uuid::Uuid;
 
 use crate::features::job::domain::{JobError, JobRepository, JobStatus};
@@ -35,6 +37,11 @@ impl ChooseOfferUseCase {
             return Err(JobError::InvalidStatusTransition);
         }
         if job.technician_profile_id.is_some() {
+            return Err(JobError::InvalidStatusTransition);
+        }
+        // An expired auction no longer reserves its bidders' credits, so
+        // picking a winner now could debit a credit nobody held back.
+        if job.is_expired_auction(chrono::Utc::now(), OPEN_AUCTION_TTL_DAYS) {
             return Err(JobError::InvalidStatusTransition);
         }
 

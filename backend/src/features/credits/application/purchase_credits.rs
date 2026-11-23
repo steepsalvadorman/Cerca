@@ -95,25 +95,34 @@ impl PurchaseCreditsUseCase {
                     wallet: self.credit_repo.wallet(profile.id).await?,
                 })
             }
-            Err(error) => {
-                let message = match &error {
-                    PaymentError::Rejected { user_message } => user_message.clone(),
-                    PaymentError::Declined => "Tu pago fue rechazado. Prueba con otro medio de pago.".to_string(),
-                    PaymentError::Unavailable => "El proveedor de pagos no está disponible.".to_string(),
-                    PaymentError::Internal(reason) => reason.clone(),
-                };
+            // A definitive decline closes the attempt with a message the
+            // payer can act on.
+            Err(PaymentError::Rejected { user_message }) => {
+                self.credit_repo.fail_purchase(purchase.id, "psp", &user_message).await?;
+                Err(CreditError::PaymentDeclined(user_message))
+            }
+            Err(PaymentError::Declined) => {
+                let message = "Tu pago fue rechazado. Prueba con otro medio de pago.".to_string();
                 self.credit_repo.fail_purchase(purchase.id, "psp", &message).await?;
-                Err(match error {
-                    PaymentError::Unavailable | PaymentError::Internal(_) => CreditError::PaymentUnavailable,
-                    PaymentError::Rejected { user_message } => CreditError::PaymentDeclined(user_message),
-                    PaymentError::Declined => CreditError::PaymentDeclined(message),
-                })
+                Err(CreditError::PaymentDeclined(message))
+            }
+            // Timeouts and our own errors are *uncertain*: the PSP may
+            // have charged. Recording them as a decline used to let a retry
+            // report "rechazado" for money that moved, and leaked internal
+            // PSP text to the user. The attempt stays pending for
+            // reconciliation, and nothing internal reaches the client.
+            Err(PaymentError::Unavailable) => Err(CreditError::PaymentUnavailable),
+            Err(PaymentError::Internal(reason)) => {
+                tracing::error!(purchase_id = %purchase.id, %reason, "credit purchase left pending after an internal PSP error");
+                Err(CreditError::PaymentUnavailable)
             }
         }
     }
 
     async fn outcome_of(&self, purchase: &CreditPurchase, technician_profile_id: i32) -> Result<PurchaseOutcome, CreditError> {
         match purchase.status {
+            // Still unresolved: never charge again with the same key.
+            PurchaseStatus::Pending => Err(CreditError::PaymentPending),
             PurchaseStatus::Failed => Err(CreditError::PaymentDeclined(
                 purchase
                     .failure_message

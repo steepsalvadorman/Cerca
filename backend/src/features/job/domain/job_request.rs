@@ -101,9 +101,12 @@ impl JobRequest {
     ) -> Self {
         let fee_amount = fee_amount_for(&fee_type);
         let is_free = fee_amount == 0;
-        // An auction stays open until the client picks an offer, whatever
-        // it costs; everything else starts right away once it is paid for.
-        let starts_pending = job_kind == "bidding" || !is_free;
+        // An auction stays open until the client picks an offer, and a
+        // direct hire waits for the named technician to accept it (they
+        // pay a credit on acceptance). Before audit run-1 a direct job was
+        // born Active: any client could assign work, chat and reviews to
+        // any technician without their consent.
+        let starts_pending = job_kind == "bidding" || job_kind == "direct" || !is_free;
         Self {
             id: Uuid::new_v4(),
             client_id,
@@ -179,6 +182,50 @@ impl JobRequest {
         self.status = JobStatus::Active;
         self.timeline_step = 0; // Confirmado
         Ok(())
+    }
+
+    /// The named technician accepts a direct hire: the job starts.
+    pub fn accept_direct(&mut self, technician_profile_id: i32) -> Result<(), JobError> {
+        if self.job_kind != "direct" || self.status != JobStatus::Pending {
+            return Err(JobError::InvalidStatusTransition);
+        }
+        if self.technician_profile_id != Some(technician_profile_id) {
+            return Err(JobError::Unauthorized);
+        }
+        self.fee_paid = true;
+        self.status = JobStatus::Active;
+        self.timeline_step = 0; // Confirmado
+        Ok(())
+    }
+
+    /// The named technician turns down a direct hire they never accepted.
+    /// This is their way to remove unsolicited jobs from their inbox.
+    pub fn decline_direct(&mut self, technician_profile_id: i32, by: Uuid) -> Result<(), JobError> {
+        if self.job_kind != "direct" || self.status != JobStatus::Pending {
+            return Err(JobError::InvalidStatusTransition);
+        }
+        if self.technician_profile_id != Some(technician_profile_id) {
+            return Err(JobError::Unauthorized);
+        }
+        self.cancel(by, Some("Rechazado por el técnico".to_string()))
+    }
+
+    /// Whether a client cancelling now owes the technician their credit
+    /// back: the technician paid one to start this job (auction win or
+    /// direct acceptance) and no work has begun yet.
+    pub fn refunds_credit_on_cancel(&self) -> bool {
+        matches!(self.job_kind.as_str(), "bidding" | "direct")
+            && self.status == JobStatus::Active
+            && self.timeline_step == 0
+            && self.technician_profile_id.is_some()
+    }
+
+    /// An open auction older than the TTL can no longer take offers or be
+    /// won (see `credits::OPEN_AUCTION_TTL_DAYS`).
+    pub fn is_expired_auction(&self, now: DateTime<Utc>, ttl_days: i32) -> bool {
+        self.job_kind == "bidding"
+            && self.status == JobStatus::Pending
+            && self.created_at < now - chrono::Duration::days(ttl_days as i64)
     }
 
     pub fn advance_timeline(&mut self) -> Result<(), JobError> {
@@ -268,7 +315,8 @@ mod tests {
         let project = job("project");
         let bidding = job("bidding");
 
-        assert_eq!((direct.fee_amount, direct.fee_paid, direct.status), (0, true, JobStatus::Active));
+        // Free for the client, but waits for the technician to accept.
+        assert_eq!((direct.fee_amount, direct.fee_paid, direct.status), (0, true, JobStatus::Pending));
         assert_eq!((project.fee_amount, project.fee_paid, project.status), (0, true, JobStatus::Active));
         // Free for the client, but open until an offer is picked.
         assert_eq!((bidding.fee_amount, bidding.fee_paid, bidding.status), (0, true, JobStatus::Pending));
@@ -311,10 +359,46 @@ mod tests {
 
     #[test]
     fn free_job_payment_retry_is_harmless() {
-        let mut direct = job("direct");
-        direct.pay_fee().unwrap();
-        assert_eq!(direct.status, JobStatus::Active);
-        assert_eq!(direct.timeline_step, 0);
+        let mut project = job("project");
+        project.pay_fee().unwrap();
+        assert_eq!(project.status, JobStatus::Active);
+        assert_eq!(project.timeline_step, 0);
+    }
+
+    fn direct_for(profile: i32) -> JobRequest {
+        JobRequest::new(Uuid::new_v4(), Some(profile), None, "direct".into(), "direct".into(), None, None, true)
+    }
+
+    #[test]
+    fn a_direct_hire_starts_only_when_the_named_technician_accepts() {
+        let mut direct = direct_for(7);
+        assert_eq!(direct.status, JobStatus::Pending);
+        assert!(matches!(direct.accept_direct(8), Err(JobError::Unauthorized)), "another technician");
+        direct.accept_direct(7).unwrap();
+        assert_eq!((direct.status.clone(), direct.timeline_step), (JobStatus::Active, 0));
+        assert!(direct.accept_direct(7).is_err(), "accepting twice");
+    }
+
+    #[test]
+    fn the_named_technician_can_decline_an_unaccepted_direct_hire() {
+        let mut direct = direct_for(7);
+        assert!(matches!(direct.decline_direct(8, Uuid::new_v4()), Err(JobError::Unauthorized)));
+        direct.decline_direct(7, Uuid::new_v4()).unwrap();
+        assert_eq!(direct.status, JobStatus::Cancelled);
+
+        let mut accepted = direct_for(7);
+        accepted.accept_direct(7).unwrap();
+        assert!(accepted.decline_direct(7, Uuid::new_v4()).is_err(), "too late to decline");
+    }
+
+    #[test]
+    fn a_credit_is_refunded_only_for_a_started_job_before_any_work() {
+        let mut direct = direct_for(7);
+        assert!(!direct.refunds_credit_on_cancel(), "never accepted, nothing was paid");
+        direct.accept_direct(7).unwrap();
+        assert!(direct.refunds_credit_on_cancel());
+        direct.advance_timeline().unwrap();
+        assert!(!direct.refunds_credit_on_cancel(), "work already started");
     }
 
     #[test]
@@ -331,7 +415,7 @@ mod tests {
 
     #[test]
     fn timeline_cannot_advance_after_completion() {
-        let mut direct = job("direct");
+        let mut direct = job("project");
         for _ in 0..3 {
             direct.advance_timeline().unwrap();
         }

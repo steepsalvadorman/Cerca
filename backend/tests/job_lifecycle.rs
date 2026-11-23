@@ -164,6 +164,7 @@ async fn paying_the_fee_activates_the_job_and_advancing_completes_it(pool: PgPoo
         })
         .await
         .unwrap();
+    accept_direct_for_test(&pool, job.id).await;
 
     PayFeeUseCase::new(job_repo.clone(), Arc::new(FakePaymentGateway))
         .execute(PayFeeInput { job_request_id: job.id, client_id, payment_method: "card".to_string() })
@@ -213,6 +214,7 @@ async fn a_technician_not_assigned_to_a_job_cannot_advance_it(pool: PgPool) {
         })
         .await
         .unwrap();
+    accept_direct_for_test(&pool, job.id).await;
 
     PayFeeUseCase::new(job_repo.clone(), Arc::new(FakePaymentGateway))
         .execute(PayFeeInput { job_request_id: job.id, client_id, payment_method: "cash".to_string() })
@@ -247,6 +249,7 @@ async fn rating_a_job_updates_the_technicians_average(pool: PgPool) {
         })
         .await
         .unwrap();
+    accept_direct_for_test(&pool, job.id).await;
 
     let advance = AdvanceProgressUseCase::new(job_repo.clone(), tech_repo.clone());
     for _ in 0..3 {
@@ -374,4 +377,16 @@ async fn a_technician_without_free_credits_cannot_bid(pool: PgPool) {
     let (accepted, refused) = results.split_at(WELCOME_CREDITS as usize);
     assert!(accepted.iter().all(Result::is_ok));
     assert!(matches!(refused[0], Err(JobError::InsufficientCredits)));
+}
+
+/// A direct hire waits for the technician since audit run-1; tests that
+/// need a running job accept it the same way the app does (one credit
+/// from the technician's welcome grant).
+async fn accept_direct_for_test(pool: &sqlx::PgPool, job_id: uuid::Uuid) {
+    use backend::features::job::domain::JobRepository as _;
+    let repo = backend::features::job::infrastructure::PostgresJobRepository::new(pool.clone());
+    let mut job = repo.find_job_request_by_id(job_id).await.unwrap().unwrap();
+    let profile = job.technician_profile_id.unwrap();
+    job.accept_direct(profile).unwrap();
+    repo.accept_direct_job(&job).await.unwrap();
 }

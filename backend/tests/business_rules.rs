@@ -70,7 +70,7 @@ impl Ctx {
     }
 
     async fn job(&self, client_id: Uuid, kind: &str, technician_profile_id: Option<i32>) -> JobRequest {
-        CreateJobUseCase::new(self.jobs.clone())
+        let job = CreateJobUseCase::new(self.jobs.clone())
             .execute(CreateJobInput {
                 client_id,
                 technician_profile_id,
@@ -81,7 +81,12 @@ impl Ctx {
                 mobility_included: None,
             })
             .await
-            .unwrap()
+            .unwrap();
+        if kind == "direct" {
+            accept_direct_for_test(&self.pool, job.id).await;
+            return self.jobs.find_job_request_by_id(job.id).await.unwrap().unwrap();
+        }
+        job
     }
 
     async fn pay(&self, job_id: Uuid, client_id: Uuid) -> Result<backend::features::job::application::PayFeeResult, JobError> {
@@ -360,4 +365,16 @@ async fn bidding_closes_once_the_job_has_its_technician(pool: PgPool) {
     // latecomer gets the same answer as any unassigned technician (403),
     // which `ownership_authorization.rs` pins at the HTTP level.
     assert!(matches!(late, Err(JobError::Unauthorized)));
+}
+
+/// A direct hire waits for the technician since audit run-1; tests that
+/// need a running job accept it the same way the app does (one credit
+/// from the technician's welcome grant).
+async fn accept_direct_for_test(pool: &sqlx::PgPool, job_id: uuid::Uuid) {
+    use backend::features::job::domain::JobRepository as _;
+    let repo = backend::features::job::infrastructure::PostgresJobRepository::new(pool.clone());
+    let mut job = repo.find_job_request_by_id(job_id).await.unwrap().unwrap();
+    let profile = job.technician_profile_id.unwrap();
+    job.accept_direct(profile).unwrap();
+    repo.accept_direct_job(&job).await.unwrap();
 }

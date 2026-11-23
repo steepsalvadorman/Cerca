@@ -211,7 +211,7 @@ async fn concurrent_advances_do_not_lose_a_transition(pool: PgPool) {
     let (tech_user, profile_id) = create_technician(&pool).await;
     let repo = job_repo(&pool);
 
-    // A free `direct` job is born `active` at step 0.
+    // A direct job, accepted by its technician: `active` at step 0.
     let job = CreateJobUseCase::new(repo.clone())
         .execute(CreateJobInput {
             client_id,
@@ -224,12 +224,13 @@ async fn concurrent_advances_do_not_lose_a_transition(pool: PgPool) {
         })
         .await
         .unwrap();
+    accept_direct_for_test(&pool, job.id).await;
 
     let advance = AdvanceProgressUseCase::new(repo.clone(), tech_repo(&pool));
 
     // Two decisions from the same observation: both would write step 1.
     let observation = repo.find_job_request_by_id(job.id).await.unwrap().unwrap();
-    assert_eq!(observation.version, 0);
+    assert_eq!(observation.version, 1, "one write: the acceptance");
 
     let first = advance.execute(job.id, tech_user).await;
     assert!(first.is_ok(), "{first:?}");
@@ -308,4 +309,16 @@ async fn the_use_case_reports_the_conflict(pool: PgPool) {
         repo.find_job_request_by_id(job.id).await.unwrap().unwrap().status.as_str(),
         "cancelled"
     );
+}
+
+/// A direct hire waits for the technician since audit run-1; tests that
+/// need a running job accept it the same way the app does (one credit
+/// from the technician's welcome grant).
+async fn accept_direct_for_test(pool: &sqlx::PgPool, job_id: uuid::Uuid) {
+    use backend::features::job::domain::JobRepository as _;
+    let repo = backend::features::job::infrastructure::PostgresJobRepository::new(pool.clone());
+    let mut job = repo.find_job_request_by_id(job_id).await.unwrap().unwrap();
+    let profile = job.technician_profile_id.unwrap();
+    job.accept_direct(profile).unwrap();
+    repo.accept_direct_job(&job).await.unwrap();
 }

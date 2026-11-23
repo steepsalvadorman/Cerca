@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 use crate::features::credits::domain::{
-    CreditError, CreditPurchase, CreditRepository, PurchaseStatus, Wallet, WELCOME_CREDITS,
+    CreditError, CreditPurchase, CreditRepository, PurchaseStatus, Wallet, OPEN_AUCTION_TTL_DAYS, WELCOME_CREDITS,
 };
 
 /// Grants the welcome credits (once — a partial unique index makes the
@@ -13,32 +13,43 @@ use crate::features::credits::domain::{
 /// Shared with the job repository, which needs the same answer to decide
 /// whether a technician may bid.
 pub async fn read_wallet(pool: &PgPool, technician_profile_id: i32) -> Result<Wallet, sqlx::Error> {
+    let mut conn = pool.acquire().await?;
+    wallet_on(&mut conn, technician_profile_id).await
+}
+
+/// The wallet read on a given connection, so a caller holding a
+/// transaction (and the technician's row lock) sees the same state it is
+/// about to change. See `PostgresJobRepository::add_job_offer`.
+pub async fn wallet_on(conn: &mut PgConnection, technician_profile_id: i32) -> Result<Wallet, sqlx::Error> {
     sqlx::query(
         "INSERT INTO credit_ledger (technician_profile_id, delta, reason) VALUES ($1, $2, 'welcome') \
          ON CONFLICT (technician_profile_id) WHERE reason = 'welcome' DO NOTHING",
     )
     .bind(technician_profile_id)
     .bind(WELCOME_CREDITS)
-    .execute(pool)
+    .execute(&mut *conn)
     .await?;
 
     let (balance,): (i64,) = sqlx::query_as(
         "SELECT COALESCE(SUM(delta), 0)::BIGINT FROM credit_ledger WHERE technician_profile_id = $1",
     )
     .bind(technician_profile_id)
-    .fetch_one(pool)
+    .fetch_one(&mut *conn)
     .await?;
 
-    // Offers on auctions that are still open: each one may still be
-    // picked and cost a credit.
+    // Offers on auctions that are still open — and not yet expired — may
+    // still be picked and cost a credit. An expired auction can no longer
+    // be won, so it stops holding credits back.
     let (reserved,): (i64,) = sqlx::query_as(
         "SELECT COUNT(*)::BIGINT FROM job_offers jo \
          JOIN job_requests jr ON jr.id = jo.job_request_id \
          WHERE jo.technician_profile_id = $1 \
-           AND jr.status = 'pending' AND jr.technician_profile_id IS NULL",
+           AND jr.status = 'pending' AND jr.technician_profile_id IS NULL \
+           AND jr.created_at > now() - make_interval(days => $2)",
     )
     .bind(technician_profile_id)
-    .fetch_one(pool)
+    .bind(OPEN_AUCTION_TTL_DAYS)
+    .fetch_one(&mut *conn)
     .await?;
 
     Ok(Wallet { balance, reserved })

@@ -1,4 +1,6 @@
 use std::sync::Arc;
+
+use crate::features::credits::domain::OPEN_AUCTION_TTL_DAYS;
 use uuid::Uuid;
 
 use crate::features::job::domain::{JobError, JobRepository, JobStatus};
@@ -76,6 +78,9 @@ impl SubmitOfferUseCase {
         // Only an open auction takes bids: not a direct hire, not a job
         // that already has its technician, not one already under way.
         if job.job_kind != "bidding" || job.status != JobStatus::Pending {
+            return Err(JobError::InvalidStatusTransition);
+        }
+        if job.is_expired_auction(chrono::Utc::now(), OPEN_AUCTION_TTL_DAYS) {
             return Err(JobError::InvalidStatusTransition);
         }
         if job.technician_profile_id.is_some() {
