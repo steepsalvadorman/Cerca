@@ -10,10 +10,13 @@ import '../../../cerca/application/cerca_controller.dart';
 import '../../../cerca/presentation/widgets/cerca_header.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../cerca/presentation/widgets/monogram_avatar.dart';
+import '../../../cerca/presentation/widgets/primary_action_button.dart';
 import '../../../cerca/presentation/widgets/verified_badge.dart';
 import '../../../technician/application/providers_controller.dart';
 import '../../../technician/domain/technician.dart';
+import '../../application/client_history_controller.dart';
 import '../../application/job_session_controller.dart';
+import '../widgets/job_address_field.dart';
 
 class DirectQuoteScreen extends ConsumerStatefulWidget {
   const DirectQuoteScreen({super.key});
@@ -23,35 +26,65 @@ class DirectQuoteScreen extends ConsumerStatefulWidget {
 }
 
 class _DirectQuoteScreenState extends ConsumerState<DirectQuoteScreen> {
-  bool _accepting = false;
+  bool _sending = false;
+  final _descriptionController = TextEditingController();
+  String? _address;
+  String? _descriptionError;
+  String? _addressError;
 
-  Future<void> _acceptQuote(Technician provider) async {
-    if (_accepting) return;
-    setState(() => _accepting = true);
+  @override
+  void initState() {
+    super.initState();
+    final draft = ref.read(serviceRequestDraftProvider);
+    _descriptionController.text = draft.description;
+    _address = draft.address;
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  /// Creates the direct job with what the client actually told us. Nothing
+  /// here is a quote yet: price and arrival time come from the technician,
+  /// in the chat, once they have read the request.
+  Future<void> _sendRequest(Technician provider) async {
+    if (_sending) return;
+    final description = _descriptionController.text.trim();
+    setState(() {
+      _descriptionError = description.isEmpty ? 'Cuéntale a ${provider.name.split(' ').first} qué necesitas.' : null;
+      _addressError = (_address == null || _address!.isEmpty) ? 'Indica dónde es el trabajo.' : null;
+    });
+    if (_descriptionError != null || _addressError != null) return;
+
+    setState(() => _sending = true);
     try {
       final draft = ref.read(serviceRequestDraftProvider);
+      final label = draft.categoryLabel ?? provider.oficio;
       final job = await ref.read(jobRepositoryProvider).createJob(
             technicianProfileId: provider.id,
             jobKind: 'direct',
-            title: draft.isComplete ? draft.title : provider.oficio,
+            title: '$label: $description',
+            address: _address,
           );
       ref.read(jobSessionControllerProvider.notifier).setJobId(job.id);
+      ref.invalidate(clientHistoryProvider);
       ref.read(cercaControllerProvider.notifier).acceptDirect();
       if (!mounted) return;
       context.go(RoutePaths.tracking);
     } catch (e) {
       if (!mounted) return;
-      final message = e is ApiException ? e.message : 'No se pudo aceptar la cotización.';
+      final message = e is ApiException ? e.message : 'No se pudo enviar la solicitud. Revisa tu conexión e inténtalo de nuevo.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
-      if (mounted) setState(() => _accepting = false);
+      if (mounted) setState(() => _sending = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final cercaState = ref.watch(cercaControllerProvider);
-    final requestDraft = ref.watch(serviceRequestDraftProvider);
     final providersAsync = ref.watch(providersControllerProvider);
     final providersPage = providersAsync.value;
 
@@ -77,13 +110,15 @@ class _DirectQuoteScreenState extends ConsumerState<DirectQuoteScreen> {
         ),
       );
     }
+    final tech = provider;
+    final firstName = tech.name.split(' ').first;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            CercaHeader(title: 'Cotización', onBack: () => context.goBack(RoutePaths.providerProfile)),
+            CercaHeader(title: 'Solicitar a $firstName', onBack: () => context.goBack(RoutePaths.providerProfile)),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -98,119 +133,81 @@ class _DirectQuoteScreenState extends ConsumerState<DirectQuoteScreen> {
                         border: Border.all(color: AppColors.cercaBorder),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            requestDraft.description.isNotEmpty
-                                ? requestDraft.description
-                                : 'Servicio de ${provider.oficio}',
-                            style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${requestDraft.categoryLabel ?? provider.oficio} · contratación directa',
-                            style: CercaText.sora(fontSize: 12, color: AppColors.cercaTextSecondary, height: 1.5),
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            width: double.infinity,
-                            height: 70,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: AppColors.cercaSurfaceTint,
-                              borderRadius: BorderRadius.circular(10),
+                          MonogramAvatar(text: tech.mono, size: 44, borderRadius: 12, fontSize: 14),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(tech.name, style: CercaText.sora(fontSize: 14, fontWeight: FontWeight.w600)),
+                                    if (tech.isVerified) const VerifiedBadge(),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${tech.oficio} · tarifa referencial ${tech.priceLabel.replaceFirst('Desde', 'desde')}',
+                                  style: CercaText.sora(fontSize: 12, color: AppColors.cercaTextSecondary),
+                                ),
+                              ],
                             ),
-                            child: Text('Foto adjunta del problema', style: CercaText.sora(fontSize: 11, color: AppColors.cercaPrimary)),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Text('Cotización de ${provider.name}', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 18),
+                    Text('¿Qué necesitas?', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
+                    TextField(
+                      controller: _descriptionController,
+                      minLines: 3,
+                      maxLines: 5,
+                      maxLength: 180,
+                      textCapitalization: TextCapitalization.sentences,
+                      onChanged: (_) {
+                        if (_descriptionError != null) setState(() => _descriptionError = null);
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Describe el problema y desde cuándo ocurre',
+                        errorText: _descriptionError,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    JobAddressField(
+                      value: _address,
+                      errorText: _addressError,
+                      onChanged: (value) => setState(() {
+                        _address = value;
+                        _addressError = null;
+                      }),
+                    ),
+                    const SizedBox(height: 18),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: AppColors.cercaBorder),
-                        borderRadius: BorderRadius.circular(14),
+                        color: AppColors.cercaBackground,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              MonogramAvatar(text: provider.mono, size: 38, borderRadius: 10, fontSize: 13),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(provider.name, style: CercaText.sora(fontSize: 13, fontWeight: FontWeight.w600)),
-                                        const SizedBox(width: 5),
-                                        const VerifiedBadge(),
-                                      ],
-                                    ),
-                                    Text(provider.oficio, style: CercaText.sora(fontSize: 11.5, color: AppColors.cercaTextSecondary)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(provider.priceLabel, style: CercaText.lora(fontSize: 26, color: AppColors.cercaPrimary)),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Puede llegar hoy a las 17:00 · trae materiales básicos',
-                            style: CercaText.sora(fontSize: 12, color: AppColors.cercaTextSecondary),
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.cercaBackground,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '"Reviso la llave de paso y cambio el sello. Si es la cañería, te aviso antes de continuar."',
-                              style: CercaText.sora(fontSize: 12.5, height: 1.5),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        '$firstName recibirá tu solicitud y te responderá por chat con su precio y horario. No pagas nada por enviarla.',
+                        style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary, height: 1.5),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.cercaBorder))),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _accepting ? null : () => _acceptQuote(provider!),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.cercaPrimary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: Text(_accepting ? 'Aceptando…' : 'Aceptar cotización', style: CercaText.sora(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-              child: Text(
-                'El contacto directo es gratuito. El pago del trabajo se acuerda y se realiza directamente con el técnico.',
-                textAlign: TextAlign.center,
-                style: CercaText.sora(fontSize: 11, color: AppColors.cercaTextMuted, height: 1.4),
-              ),
+            PrimaryActionButton(
+              label: _sending ? 'Enviando…' : 'Enviar solicitud a $firstName',
+              enabled: !_sending,
+              onTap: () => _sendRequest(tech),
             ),
           ],
         ),

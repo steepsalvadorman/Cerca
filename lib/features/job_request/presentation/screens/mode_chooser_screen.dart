@@ -10,7 +10,9 @@ import '../../../cerca/application/cerca_seed_data.dart';
 import '../../../cerca/presentation/widgets/back_circle_button.dart';
 import '../../../cerca/presentation/widgets/cerca_text_styles.dart';
 import '../../../technician/application/providers_controller.dart';
+import '../../application/client_history_controller.dart';
 import '../../application/job_session_controller.dart';
+import '../widgets/job_address_field.dart';
 
 class ModeChooserScreen extends ConsumerStatefulWidget {
   const ModeChooserScreen({super.key});
@@ -22,6 +24,10 @@ class ModeChooserScreen extends ConsumerStatefulWidget {
 class _ModeChooserScreenState extends ConsumerState<ModeChooserScreen> {
   bool _creating = false;
   String? _categoryId;
+  String? _address;
+  String? _categoryError;
+  String? _descriptionError;
+  String? _addressError;
   final _descriptionController = TextEditingController();
 
   @override
@@ -30,6 +36,7 @@ class _ModeChooserScreenState extends ConsumerState<ModeChooserScreen> {
     final draft = ref.read(serviceRequestDraftProvider);
     _categoryId = draft.categoryId ?? ref.read(selectedCategoryProvider);
     _descriptionController.text = draft.description;
+    _address = draft.address;
   }
 
   @override
@@ -38,20 +45,26 @@ class _ModeChooserScreenState extends ConsumerState<ModeChooserScreen> {
     super.dispose();
   }
 
-  bool _saveDraft() {
+  /// Validates next to each field instead of a detached snackbar.
+  /// [needsAddress] is true for bidding, which creates the job right away;
+  /// the direct path asks for the address on the technician's request screen.
+  bool _saveDraft({bool needsAddress = false}) {
     final categoryId = _categoryId;
     final description = _descriptionController.text.trim();
-    if (categoryId == null || description.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona una especialidad y describe el trabajo que necesitas.')),
-      );
-      return false;
-    }
+    setState(() {
+      _categoryError = categoryId == null ? 'Elige un oficio.' : null;
+      _descriptionError = description.isEmpty ? 'Describe el trabajo que necesitas.' : null;
+      _addressError = needsAddress && (_address == null || _address!.isEmpty)
+          ? 'Indica dónde es el trabajo.'
+          : null;
+    });
+    if (_categoryError != null || _descriptionError != null || _addressError != null) return false;
     final category = CercaSeedData.categories.firstWhere((item) => item.id == categoryId);
     ref.read(serviceRequestDraftProvider.notifier).save(
           categoryId: category.id,
           categoryLabel: category.label,
           description: description,
+          address: _address,
         );
     return true;
   }
@@ -63,15 +76,17 @@ class _ModeChooserScreenState extends ConsumerState<ModeChooserScreen> {
   }
 
   Future<void> _startBidding() async {
-    if (_creating || !_saveDraft()) return;
+    if (_creating || !_saveDraft(needsAddress: true)) return;
     setState(() => _creating = true);
     try {
       final draft = ref.read(serviceRequestDraftProvider);
       final job = await ref.read(jobRepositoryProvider).createJob(
             jobKind: 'bidding',
             title: draft.title,
+            address: draft.address,
           );
       ref.read(jobSessionControllerProvider.notifier).setJobId(job.id);
+      ref.invalidate(clientHistoryProvider);
       if (!mounted) return;
       context.go(RoutePaths.jobBidding);
     } catch (e) {
@@ -117,13 +132,17 @@ class _ModeChooserScreenState extends ConsumerState<ModeChooserScreen> {
                         labelText: 'Especialidad técnica',
                         hintText: 'Selecciona un oficio',
                         prefixIcon: const Icon(Icons.handyman_outlined),
+                        errorText: _categoryError,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       items: [
                         for (final category in CercaSeedData.categories)
                           DropdownMenuItem(value: category.id, child: Text(category.label)),
                       ],
-                      onChanged: (value) => setState(() => _categoryId = value),
+                      onChanged: (value) => setState(() {
+                        _categoryId = value;
+                        _categoryError = null;
+                      }),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -132,7 +151,11 @@ class _ModeChooserScreenState extends ConsumerState<ModeChooserScreen> {
                       maxLines: 4,
                       maxLength: 180,
                       textCapitalization: TextCapitalization.sentences,
+                      onChanged: (_) {
+                        if (_descriptionError != null) setState(() => _descriptionError = null);
+                      },
                       decoration: InputDecoration(
+                        errorText: _descriptionError,
                         labelText: 'Trabajo requerido',
                         hintText: 'Ej.: reparar una fuga debajo del lavadero',
                         alignLabelWithHint: true,
@@ -140,6 +163,15 @@ class _ModeChooserScreenState extends ConsumerState<ModeChooserScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    JobAddressField(
+                      value: _address,
+                      errorText: _addressError,
+                      onChanged: (value) => setState(() {
+                        _address = value;
+                        _addressError = null;
+                      }),
+                    ),
+                    const SizedBox(height: 20),
                     Text('¿Cómo prefieres contratar?', style: CercaText.lora(fontSize: 19)),
                     const SizedBox(height: 12),
                     _OptionCard(
