@@ -137,6 +137,7 @@ async fn main() {
         object_storage,
     };
 
+    backend::shared::rate_limit::set_trusted_proxy_hops(config.trusted_proxy_hops);
     let app = routes::app_router(state, &config.cors_allowed_origins);
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", config.port))

@@ -36,7 +36,7 @@
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use axum::extract::{ConnectInfo, Request, State};
@@ -114,28 +114,49 @@ impl RateLimiter {
     }
 }
 
+/// How many reverse proxies in front of the server append to
+/// `X-Forwarded-For` (`TRUSTED_PROXY_HOPS`; Render is 1). Zero means no
+/// trusted proxy: forwarded headers are ignored and the socket address is
+/// the key. Set once at startup by `main`.
+static TRUSTED_PROXY_HOPS: OnceLock<usize> = OnceLock::new();
+
+pub fn set_trusted_proxy_hops(hops: usize) {
+    let _ = TRUSTED_PROXY_HOPS.set(hops);
+}
+
+fn trusted_proxy_hops() -> usize {
+    TRUSTED_PROXY_HOPS.get().copied().unwrap_or(0)
+}
+
 /// The caller's identity for limiting purposes.
 ///
-/// `X-Forwarded-For` first (Render terminates TLS and forwards the real
-/// client), then `X-Real-IP`, then the socket address. The first two are
-/// client-controlled, which is why the module docs are explicit that this
-/// is a speed bump and not a boundary.
-fn client_key(headers: &HeaderMap, peer: Option<SocketAddr>) -> String {
-    fn first_hop(value: &str) -> Option<&str> {
-        value.split(',').map(str::trim).find(|part| !part.is_empty())
-    }
-
-    for header in ["x-forwarded-for", "x-real-ip"] {
-        if let Some(value) = headers.get(header).and_then(|v| v.to_str().ok()) {
-            if let Some(hop) = first_hop(value) {
-                return hop.to_string();
+/// Every proxy *appends* the address it saw, so only the rightmost
+/// `hops` entries of `X-Forwarded-For` were written by infrastructure we
+/// trust; everything to their left is whatever the client sent. The key is
+/// the entry our outermost trusted proxy recorded — the address that
+/// actually connected to it — parsed as an IP. Before audit run-1 the
+/// *leftmost* entry was used, so any caller could pick its own key: dodge
+/// the login limit with a fresh value per request, or exhaust a victim's
+/// bucket by sending their address. `X-Real-IP` is not trusted at all.
+fn client_key(headers: &HeaderMap, peer: Option<SocketAddr>, hops: usize) -> String {
+    if hops > 0 {
+        let entries: Vec<&str> = headers
+            .get_all("x-forwarded-for")
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .flat_map(|v| v.split(','))
+            .map(str::trim)
+            .filter(|part| !part.is_empty())
+            .collect();
+        if entries.len() >= hops {
+            if let Ok(ip) = entries[entries.len() - hops].parse::<IpAddr>() {
+                return ip.to_string();
             }
         }
     }
 
     match peer.map(|addr| addr.ip()) {
-        Some(IpAddr::V4(ip)) => ip.to_string(),
-        Some(IpAddr::V6(ip)) => ip.to_string(),
+        Some(ip) => ip.to_string(),
         None => "unknown".to_string(),
     }
 }
@@ -165,7 +186,7 @@ pub async fn enforce(
         .get::<ConnectInfo<SocketAddr>>()
         .map(|ConnectInfo(addr)| *addr);
 
-    let key = client_key(request.headers(), peer);
+    let key = client_key(request.headers(), peer, trusted_proxy_hops());
 
     match limiter.check(&key, Instant::now()) {
         (true, _) => next.run(request).await,
@@ -231,32 +252,42 @@ mod tests {
     }
 
     #[test]
-    fn forwarded_addresses_are_used_before_the_socket() {
+    fn without_a_trusted_proxy_forwarded_headers_are_ignored() {
         let mut headers = HeaderMap::new();
-        headers.insert("x-forwarded-for", "203.0.113.7, 10.0.0.1".parse().unwrap());
+        headers.insert("x-forwarded-for", "203.0.113.7".parse().unwrap());
+        headers.insert("x-real-ip", "203.0.113.8".parse().unwrap());
+        let peer: SocketAddr = "198.51.100.9:5000".parse().unwrap();
+        assert_eq!(client_key(&headers, Some(peer), 0), "198.51.100.9");
+    }
+
+    #[test]
+    fn behind_one_proxy_the_rightmost_hop_is_the_client() {
+        let mut headers = HeaderMap::new();
+        // Client forged "1.1.1.1"; the proxy appended the real address.
+        headers.insert("x-forwarded-for", "1.1.1.1, 203.0.113.7".parse().unwrap());
         let peer: SocketAddr = "10.0.0.1:5000".parse().unwrap();
-
-        assert_eq!(
-            client_key(&headers, Some(peer)),
-            "203.0.113.7",
-            "the first hop is the real client, not the proxy chain"
-        );
+        assert_eq!(client_key(&headers, Some(peer), 1), "203.0.113.7");
     }
 
     #[test]
-    fn falls_back_to_the_socket_address() {
-        let headers = HeaderMap::new();
-        let peer: SocketAddr = "198.51.100.9:5000".parse().unwrap();
-        assert_eq!(client_key(&headers, Some(peer)), "198.51.100.9");
+    fn a_forged_leftmost_value_cannot_choose_the_key() {
+        let peer: SocketAddr = "10.0.0.1:5000".parse().unwrap();
+        let keys: std::collections::HashSet<String> = (0..5)
+            .map(|i| {
+                let mut headers = HeaderMap::new();
+                headers.insert("x-forwarded-for", format!("9.9.9.{i}, 203.0.113.7").parse().unwrap());
+                client_key(&headers, Some(peer), 1)
+            })
+            .collect();
+        assert_eq!(keys.len(), 1, "rotating the spoofed part must not rotate the bucket");
     }
 
     #[test]
-    fn a_header_with_only_separators_falls_through_to_the_socket() {
+    fn a_malformed_trusted_hop_falls_back_to_the_socket() {
         let mut headers = HeaderMap::new();
-        headers.insert("x-forwarded-for", " , ".parse().unwrap());
+        headers.insert("x-forwarded-for", "not-an-ip".parse().unwrap());
         let peer: SocketAddr = "198.51.100.9:5000".parse().unwrap();
-
-        assert_eq!(client_key(&headers, Some(peer)), "198.51.100.9");
+        assert_eq!(client_key(&headers, Some(peer), 1), "198.51.100.9");
     }
 
     /// The table must not grow without bound when every request carries a

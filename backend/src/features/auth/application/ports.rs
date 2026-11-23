@@ -25,10 +25,16 @@ pub trait PasswordHasher: Send + Sync {
 /// A panic in the blocking task (or a runtime shutting down) surfaces as
 /// `Err(())`, the same shape as a hashing failure, so callers keep their
 /// single error path.
+/// Argon2id evaluations allowed at once (~19 MiB each). Unauthenticated
+/// register/login can trigger them, so without a bound a burst of requests
+/// could fill the blocking pool and memory; extra callers wait their turn.
+static HASH_PERMITS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+
 pub async fn hash_password(
     hasher: Arc<dyn PasswordHasher>,
     plain: String,
 ) -> Result<String, ()> {
+    let _permit = HASH_PERMITS.acquire().await.map_err(|_| ())?;
     tokio::task::spawn_blocking(move || hasher.hash(&plain))
         .await
         .unwrap_or(Err(()))
@@ -41,6 +47,7 @@ pub async fn verify_password(
     plain: String,
     hash: String,
 ) -> Result<bool, ()> {
+    let _permit = HASH_PERMITS.acquire().await.map_err(|_| ())?;
     tokio::task::spawn_blocking(move || hasher.verify(&plain, &hash))
         .await
         .unwrap_or(Err(()))

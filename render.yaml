@@ -60,11 +60,22 @@ services:
         sync: false
       - key: S3_BUCKET
         sync: false
-      # `fake` simulates credit purchases (staging only — the server refuses
-      # to boot with APP_ENV=production). Switch to `culqi` and fill both
-      # keys below to charge for real.
+      # Turns on every production startup guard in src/main.rs (no fake
+      # payments, no Culqi test key, no leftover demo password). Without it
+      # the service boots as "not production" and those guards are skipped.
+      - key: APP_ENV
+        value: production
+      # Render's proxy appends the client address to X-Forwarded-For; the
+      # rate limiter keys on that single trusted hop, never on values the
+      # client sent itself.
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
+      # Real charges through Culqi. The server refuses to boot until both
+      # keys below are filled in, which is the intended failure: a missing
+      # key must stop the deploy, not silently fall back to free credits.
+      # A staging service may override this with `fake` in the dashboard.
       - key: PAYMENTS_MODE
-        value: fake
+        value: culqi
       - key: CULQI_SECRET_KEY
         sync: false
       - key: CULQI_PUBLIC_KEY
