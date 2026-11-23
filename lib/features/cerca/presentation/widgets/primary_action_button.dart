@@ -28,23 +28,29 @@ class PrimaryActionButton extends StatelessWidget {
             ? const Border(top: BorderSide(color: AppColors.cercaBorder))
             : null,
       ),
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(15),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: enabled ? AppColors.cercaPrimary : const Color(0xFFC9B8B4),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+      // Explicit role and state so TalkBack says "botón, deshabilitado"
+      // instead of reading plain text.
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: enabled ? AppColors.cercaPrimary : const Color(0xFFC9B8B4),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),

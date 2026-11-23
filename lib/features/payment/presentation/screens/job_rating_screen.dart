@@ -73,7 +73,7 @@ class _JobRatingScreenState extends ConsumerState<JobRatingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            CercaHeader(title: 'Calificación final', onBack: () => context.goBack(RoutePaths.tracking)),
+            CercaHeader(title: 'Calificar el trabajo', onBack: () => context.goBack(RoutePaths.tracking)),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -88,11 +88,14 @@ class _JobRatingScreenState extends ConsumerState<JobRatingScreen> {
                         border: Border.all(color: AppColors.cercaBorder),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      // Stacked, not side by side: "Directo con el técnico" next
+                      // to the label overflowed even at the default text size.
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Total pactado con el técnico', style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w700)),
-                          Text(agreedLabel, style: CercaText.sora(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary)),
+                          Text('Total pactado con el técnico', style: CercaText.sora(fontSize: 12.5, color: AppColors.cercaTextSecondary)),
+                          const SizedBox(height: 2),
+                          Text(agreedLabel, style: CercaText.sora(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.cercaPrimary)),
                         ],
                       ),
                     ),
@@ -139,16 +142,27 @@ class _JobRatingScreenState extends ConsumerState<JobRatingScreen> {
                     else ...[
                       Text('¿Cómo estuvo el trabajo de $providerName?', style: CercaText.sora(fontSize: 13.5, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 10),
+                      // 48dp targets with a spoken value ("3 de 5 estrellas,
+                      // seleccionado") instead of five unlabeled "★".
                       Row(
                         children: [
                           for (var i = 1; i <= 5; i++)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
+                            Semantics(
+                              button: true,
+                              selected: i == state.rating,
+                              label: '$i de 5 estrellas',
+                              excludeSemantics: true,
                               child: InkWell(
                                 onTap: () => controller.setRating(i),
-                                child: Text(
-                                  '★',
-                                  style: TextStyle(fontSize: 30, color: i <= state.rating ? AppColors.cercaStar : const Color(0xFFD8CFC9)),
+                                customBorder: const CircleBorder(),
+                                child: SizedBox(
+                                  width: 52,
+                                  height: 52,
+                                  child: Icon(
+                                    i <= state.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                                    size: 36,
+                                    color: i <= state.rating ? AppColors.cercaStar : const Color(0xFF948782),
+                                  ),
                                 ),
                               ),
                             ),
@@ -182,7 +196,7 @@ class _JobRatingScreenState extends ConsumerState<JobRatingScreen> {
             ),
             if (!rated)
               PrimaryActionButton(
-                label: _submitting ? 'Enviando…' : 'Confirmar y calificar',
+                label: _submitting ? 'Enviando…' : 'Enviar calificación',
                 enabled: !_submitting && state.rating > 0,
                 onTap: () => _submit(state.rating),
               ),

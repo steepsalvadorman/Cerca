@@ -155,6 +155,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         textAlign: TextAlign.center,
                                         keyboardType:
                                             TextInputType.emailAddress,
+                                        // "Siguiente" moves focus to the password.
+                                        textInputAction: TextInputAction.next,
+                                        autocorrect: false,
+                                        autofillHints: const [AutofillHints.email],
                                         style: CercaText.sora(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
@@ -196,6 +200,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         controller: _passwordController,
                                         textAlign: TextAlign.center,
                                         obscureText: true,
+                                        textInputAction: TextInputAction.done,
+                                        autofillHints: const [AutofillHints.password],
                                         style: CercaText.sora(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
