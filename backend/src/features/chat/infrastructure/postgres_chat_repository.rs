@@ -59,6 +59,14 @@ impl From<ConversationRow> for Conversation {
     }
 }
 
+/// Most recent messages returned per poll. The app re-reads the thread
+/// every few seconds, so returning the whole history made every poll grow
+/// with the conversation (audit run-1, unpaginated-message-accumulation).
+const MESSAGE_PAGE: i64 = 200;
+
+/// Hard cap on one job's thread, so a counterpart cannot grow it forever.
+const MAX_MESSAGES_PER_JOB: i64 = 1000;
+
 pub struct PostgresChatRepository {
     pool: PgPool,
 }
@@ -72,9 +80,12 @@ impl PostgresChatRepository {
 #[async_trait]
 impl ChatRepository for PostgresChatRepository {
     async fn add_message(&self, message: &ChatMessage) -> Result<(), ChatError> {
-        sqlx::query(
+        // Inserted only while the thread is under the cap, in one
+        // statement, so concurrent sends cannot overshoot it by much.
+        let result = sqlx::query(
             "INSERT INTO chat_messages (id, job_request_id, sender_id, sender_role, text, created_at) \
-             VALUES ($1, $2, $3, $4, $5, $6)",
+             SELECT $1, $2, $3, $4, $5, $6 \
+             WHERE (SELECT COUNT(*) FROM chat_messages WHERE job_request_id = $2) < $7",
         )
         .bind(message.id)
         .bind(message.job_request_id)
@@ -82,19 +93,26 @@ impl ChatRepository for PostgresChatRepository {
         .bind(&message.sender_role)
         .bind(&message.text)
         .bind(message.created_at)
+        .bind(MAX_MESSAGES_PER_JOB)
         .execute(&self.pool)
         .await
         .map_err(|e| ChatError::Repository(e.to_string()))?;
 
+        if result.rows_affected() == 0 {
+            return Err(ChatError::ThreadFull);
+        }
         Ok(())
     }
 
     async fn find_messages_by_job_id(&self, job_request_id: Uuid) -> Result<Vec<ChatMessage>, ChatError> {
         let rows = sqlx::query_as::<_, ChatMessageRow>(
-            "SELECT id, job_request_id, sender_id, sender_role, text, created_at \
-             FROM chat_messages WHERE job_request_id = $1 ORDER BY created_at ASC",
+            "SELECT * FROM ( \
+                 SELECT id, job_request_id, sender_id, sender_role, text, created_at \
+                 FROM chat_messages WHERE job_request_id = $1 ORDER BY created_at DESC LIMIT $2 \
+             ) latest ORDER BY created_at ASC",
         )
         .bind(job_request_id)
+        .bind(MESSAGE_PAGE)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| ChatError::Repository(e.to_string()))?;
@@ -141,7 +159,7 @@ impl ChatRepository for PostgresChatRepository {
                  WHERE job_request_id = j.id ORDER BY created_at DESC LIMIT 1 \
              ) lm ON TRUE \
              WHERE (j.client_id = $1 OR tp.user_id = $1) AND j.status <> 'cancelled' \
-             ORDER BY updated_at DESC",
+             ORDER BY updated_at DESC LIMIT 100",
         )
         .bind(user_id)
         .fetch_all(&self.pool)

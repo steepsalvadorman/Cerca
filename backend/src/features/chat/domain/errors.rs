@@ -21,6 +21,8 @@ pub enum ChatError {
     #[error("el trabajo terminó — el chat es de solo lectura")]
     ReadOnly,
 
+    #[error("este chat llegó al máximo de mensajes")]
+    ThreadFull,
     #[error("database error: {0}")]
     Repository(String),
 }
